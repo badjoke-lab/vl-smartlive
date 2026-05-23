@@ -9,6 +9,7 @@
     "public-surface:check": "node scripts/check-public-surface.mjs",
     "direct-release:check": "node scripts/check-direct-release.mjs",
     "release:artifacts": "node scripts/build-release-artifacts.mjs",
-    "release:direct": "node scripts/build-direct-release.mjs"
+    "release:direct": "node scripts/build-direct-release.mjs",
+    "release:direct:zips": "node scripts/build-direct-release-zips.mjs"
   }
 }
