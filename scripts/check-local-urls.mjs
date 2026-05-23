@@ -5,7 +5,7 @@ const editions = [
   { id: 'obs-bridge', port: 4176, paths: ['/', '/src/renderer/main.js'], terms: ['Comments', 'Raw', 'Radar'] },
   { id: 'web-console', port: 4173, paths: ['/', '/src/main.js'], terms: ['Load OBS Bridge sample', 'Comments', 'Report'] },
   { id: 'pc-standalone', port: 4174, paths: ['/', '/src/main.js'], terms: ['SmartLive Encoder', 'Use camera', 'Raw', 'Radar'] },
-  { id: 'mobile', port: 4175, paths: ['/', '/src/main.js'], terms: ['SmartLive Mobile', 'Load bundled sample data', 'Raw mode', 'Radar mode'] }
+  { id: 'mobile', port: 4175, paths: ['/', '/src/main.js'], terms: ['SmartLive Encoder Mobile', 'コメントセンター', '配信の安定化', '配信レポート', 'Radar'] }
 ];
 
 const errors = [];
