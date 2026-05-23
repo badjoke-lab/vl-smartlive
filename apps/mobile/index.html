@@ -16,6 +16,11 @@
         <p class="lead">Smartphone-first local/browser/PWA candidate. No cloud backend, no external API dependency, and no login/account.</p>
       </header>
 
+      <section class="card live-preview-card">
+        <div class="status-row"><strong>Stable</strong><span>3.2 Mbps</span><span>72%</span><span>128 viewers</span></div>
+        <div class="phone-preview"><span>LIVE</span><strong>1080p · 30fps</strong></div>
+      </section>
+
       <section class="card">
         <h2>First-run guide</h2>
         <ol class="guide-list">
@@ -80,6 +85,13 @@
         <h2>Install guidance (PWA)</h2>
         <p class="support-note">Open in smartphone browser and use Add to Home Screen / Install App prompt where available.</p>
       </section>
+
+      <nav class="bottom-actions" aria-label="Mobile preview actions">
+        <button type="button">Stop</button>
+        <button type="button" class="active">Stable mode</button>
+        <button type="button">Comments</button>
+        <button type="button">Settings</button>
+      </nav>
     </main>
 
     <script type="module" src="./src/main.js"></script>
