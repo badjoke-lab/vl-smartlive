@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 
 const appPath = process.argv[2] || '.';
@@ -38,6 +38,14 @@ function findFile(url) {
   return null;
 }
 
+function toBrowserJavaScript(source) {
+  return source
+    .replace(/^import\s+type\s+[^;]+;\s*$/gm, '')
+    .replace(/:\s*[A-Za-z_$][A-Za-z0-9_$<>|&\[\]\s,]*(?=\s*[=,;)])/g, '')
+    .replace(/\s+as\s+[A-Za-z_$][A-Za-z0-9_$<>|&\[\]\s,]*/g, '')
+    .replace(/<[^>]+>\s*(?=\()/g, '');
+}
+
 createServer((req, res) => {
   const file = findFile(req.url);
   if (!file) {
@@ -46,6 +54,10 @@ createServer((req, res) => {
     return;
   }
   res.writeHead(200, { 'content-type': types[extname(file)] || 'application/octet-stream' });
+  if (['.ts', '.tsx'].includes(extname(file))) {
+    res.end(toBrowserJavaScript(readFileSync(file, 'utf8')));
+    return;
+  }
   createReadStream(file).pipe(res);
 }).listen(port, '127.0.0.1', () => {
   console.log(`Open http://127.0.0.1:${port}/`);
