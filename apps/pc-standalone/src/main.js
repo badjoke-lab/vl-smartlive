@@ -19,33 +19,40 @@ const state = {
 };
 const navItems = ['Live', 'Prepare', 'Comments', 'Stability', 'Settings', 'Report'];
 const el = (tag, txt, cls) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt !== undefined) n.textContent = txt; return n; };
-const validRtmp = (v) => { try { const u = new URL(v); return ['rtmp:', 'rtmps:'].includes(u.protocol); } catch { return false; } };
 const commentsOrdered = () => state.commentMode === 'Raw' ? [...state.comments] : [...state.comments].sort((a,b)=>({warning:0,question:1,issue:2,general:2,praise:3}[a.radar]??9)-({warning:0,question:1,issue:2,general:2,praise:3}[b.radar]??9));
 const safeDownload = (filename, text) => { const blob = new Blob([text], { type: 'application/json;charset=utf-8' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url); };
 
+function languageToggle() {
+  const lang = el('div', undefined, 'row lang-toggle');
+  lang.append(el('span', t('language')));
+  [['en', t('english')], ['ja', t('japanese')]].forEach(([code, label]) => {
+    const b = el('button', label, state.language === code ? 'active' : '');
+    b.onclick = () => { setLanguage(code); state.language = code; render(); };
+    lang.append(b);
+  });
+  return lang;
+}
+
 function buildCommentsPanel() {
-  const wrap = el('section', undefined, 'card comments-panel');
+  const wrap = el('section', undefined, 'panel comments-panel');
   const top = el('div', undefined, 'comments-top');
-  top.append(el('h3', t('comments')));
-  top.append(el('span', t('viewerCount')));
-  top.append(el('button', '⚙', 'icon-btn'));
+  top.append(el('h3', t('comments')), el('span', t('viewerCount'), 'viewer-chip'), el('button', '⚙', 'icon-btn'));
   wrap.append(top);
   const tabs = el('div', undefined, 'tabs');
   ['Raw', 'Radar'].forEach((m) => { const b = el('button', m, state.commentMode === m ? 'active' : ''); b.onclick = () => { state.commentMode = m; render(); }; tabs.append(b); });
   wrap.append(tabs);
   const stats = el('div', undefined, 'mini-stats');
-  ['questions', 'warnings', 'praise', 'issues'].forEach((k) => stats.append(el('span', t(k), 'pill')));
+  [['questions','24'], ['warnings','8'], ['praise','52'], ['issues','6']].forEach(([k,v]) => { const p = el('span', undefined, 'pill'); p.append(el('strong', v), el('small', t(k))); stats.append(p); });
   wrap.append(stats);
   const list = el('div', undefined, 'comment-list');
   commentsOrdered().forEach((c, idx) => {
     const it = el('article', undefined, `comment ${c.radar} ${idx===1?'selected':''}`);
-    it.append(el('small', `${c.time} · ${c.author}`));
-    it.append(el('span', c.category, 'category'));
-    it.append(el('p', c.message));
-    const row = el('div', undefined, 'row');
-    row.append(el('button', t('readAloud'))); row.append(el('button', t('pin')));
-    row.append(el('button', '🔈')); row.append(el('button', '📌'));
-    it.append(row); list.append(it);
+    const meta = el('div', undefined, 'comment-meta');
+    meta.append(el('small', c.time), el('strong', c.author), el('span', c.category, 'category'));
+    const actions = el('div', undefined, 'comment-actions');
+    ['✓', '📌', '🔊'].forEach((a) => actions.append(el('button', a, 'icon-btn')));
+    it.append(meta, el('p', c.message), actions);
+    list.append(it);
   });
   wrap.append(list);
   return wrap;
@@ -55,37 +62,90 @@ function liveScreen() {
   const area = el('section', undefined, 'main');
   const grid = el('div', undefined, 'live-grid');
   const left = el('div', undefined, 'stack');
-  const preview = el('section', undefined, 'card');
-  preview.append(el('h2', 'VL SmartLive Preview'));
-  const surface = el('div', undefined, 'preview-surface');
-  surface.append(el('span', 'PREVIEW', 'badge red'));
-  surface.append(el('span', 'LIVE', 'badge green'));
-  ['Desktop capture', 'Game main', '1920x1080', '60 fps'].forEach((s)=>surface.append(el('span', s, 'hud')));
-  preview.append(surface);
+  const panel = el('section', undefined, 'panel');
+  const preview = el('div', undefined, 'preview-surface');
+  preview.append(el('span', 'PREVIEW', 'badge red'), el('span', 'LIVE', 'badge green'), el('span', 'Scene: Game Main', 'scene-chip'));
+  preview.append(el('div', undefined, 'preview-radar'));
+  preview.append(el('div', undefined, 'preview-subject'));
+  const bl = el('div', undefined, 'preview-bars'); ['Health','Stability','Latency'].forEach((k)=>{const r=el('div',undefined,'hud-row');r.append(el('small',k),el('span',undefined,'hud-meter'));bl.append(r);}); preview.append(bl);
+  const br = el('div', undefined, 'preview-hud'); ['REC','NET','CAM'].forEach((k)=>br.append(el('span',k,'hud-pill'))); preview.append(br);
+  panel.append(preview);
+
   const strip = el('div', undefined, 'control-strip');
-  ['Scene A', t('edit'), t('switchScene'), 'Mic ▮▮▮▯', 'System ▮▮▮▮', '⛶'].forEach((n)=>strip.append(el('button', n)));
-  preview.append(strip);
+  ['Scene A ▾', t('edit'), t('switchScene')].forEach((n)=>strip.append(el('button', n)));
+  ['Mic','System'].forEach((n)=>{const m=el('div',undefined,'meter-block');m.append(el('small',n),el('span',undefined,'meter-bars'));strip.append(m);});
+  strip.append(el('button','⛶'));
+  panel.append(strip);
+
   const sources = el('div', undefined, 'source-grid');
-  [['Screen capture','Desktop capture / enabled'],['Camera','1080p / disabled'],['Microphone','USB mic / enabled']].forEach(([a,b])=>{const c=el('article',undefined,'source-card');c.append(el('h4',a),el('p',b));sources.append(c);});
-  preview.append(sources);
-  const metrics = el('div', undefined, 'metrics');
-  ['Audio -8 dB','Upload 6.2 Mbps','Bitrate 6200 kbps','Dropped 12','CPU 34%','GPU 21%','Viewers 124'].forEach((m)=>metrics.append(el('span',m,'metric')));
-  preview.append(metrics);
+  [['🖥','Screen capture','Desktop capture / enabled','enabled'],['📷','Camera','1080p / disabled','disabled'],['🎙','Microphone','USB mic / enabled','enabled']]
+    .forEach(([i,a,b,s])=>{const c=el('article',undefined,'source-card');const h=el('div',undefined,'source-head');h.append(el('span',i,'source-icon'),el('strong',a),el('span','⋯','source-menu'));c.append(h,el('p',b),el('span',s,'state '+s));sources.append(c);});
+  panel.append(sources);
+
+  const metrics = el('div', undefined, 'metrics-grid');
+  [['Audio','-8 dB','input level'],['Upload speed','6.2 Mbps','uplink'],['Bitrate','6200 kbps','target 6500'],['Dropped frames','0.42%','last 10 min'],['CPU usage','34%','normal'],['GPU usage','21%','normal'],['Viewers','124','live']] .forEach(([a,b,c])=>{const m=el('article',undefined,'metric-card');m.append(el('small',a),el('strong',b),el('span',c),el('div',undefined,'spark'));metrics.append(m);});
+  panel.append(metrics);
+
   const status = el('div', undefined, 'statusbar');
-  status.append(el('span','Connected · Encoder stable · Dropped 12 · CPU 34% · MEM 2.4GB · v0.0.x · local rec OFF'));
-  preview.append(status);
-  left.append(preview);
+  ['Connected','Preview only','Encoder stable','Auto reconnect ON','Radar ON','Local rec OFF','00:18:42','/Users/demo/VL-SmartLive/records'].forEach((x)=>status.append(el('span',x,'status-pill')));
+  panel.append(status);
+
+  left.append(panel);
   grid.append(left, buildCommentsPanel());
   area.append(grid);
   return area;
 }
 
-function prepareScreen(){const m=el('section',undefined,'main');const c=el('section',undefined,'card');c.append(el('h2',t('prepare')));c.append(el('p',t('streamSetupSteps')));const chips=el('div',undefined,'metrics');['1 Source','2 Platform','3 Video / Audio','4 Details','5 Check'].forEach(v=>chips.append(el('span',v,'metric')));c.append(chips);const r=el('input');r.placeholder='RTMP / RTMPS URL';r.value=state.localSettings.rtmpUrl;r.oninput=()=>{state.localSettings.rtmpUrl=r.value;localStorage.setItem('pcStandaloneSettings',JSON.stringify({rtmpUrl:r.value}));};const k=el('input');k.type='password';k.placeholder=t('runtimeStreamKey');k.oninput=()=>{state.streamKey=k.value;};c.append(el('p','Screen · Window · Camera · Mic only'));c.append(el('p','YouTube · Twitch · Custom RTMP'));c.append(el('p','Signed in: local demo account'));c.append(r,k,el('p',t('streamKeyNotSaved')));c.append(el('p','Title / Category / Language selectors (mock)'));c.append(el('p','YouTube comments ON · Twitch comments OFF'));c.append(el('p','Preview card: 720p / 30fps recommendation, mic/system meter'));const b=el('button',t('openPreview'));c.append(b);m.append(c);return m;}
-function commentsScreen(){const m=el('section',undefined,'main');const c=el('section',undefined,'card');c.append(el('h2',t('comments')));c.append(el('p','Raw mode / Radar mode · All · Questions · Audio/video trouble · Hype · Held / risky'));c.append(el('p','Read queue: 4 · Filter · NG settings'));c.append(el('p','Selected detail: user profile + Read aloud / Pin / Mark done / Hide comment / Mute user'));m.append(c);m.append(buildCommentsPanel());return m;}
-function stabilityScreen(){const m=el('section',undefined,'main');const c=el('section',undefined,'card');c.append(el('h2',t('stability')));c.append(el('p','Audio issue · Network unstable · Dropped frames · CPU high load'));c.append(el('p','Active alerts list + recommendation: switch to stability mode / reduce bitrate / reduce fps / lower BGM / adjust keyframe'));c.append(el('p','Impact: image impact low · latency impact low · viewer experience improved'));c.append(el('button',t('switchToStabilityMode')),el('button',t('reassessLater')),el('button',t('openDetailedSettings')));m.append(c);return m;}
-function settingsScreen(){const m=el('section',undefined,'main');const c=el('section',undefined,'card');c.append(el('h2',t('settings')));c.append(el('p','Stream settings · Input settings · Display settings · Comment settings · Read-aloud settings · Stability settings'));const row=el('div',undefined,'row');[['en',t('english')],['ja',t('japanese')]].forEach(([code,label])=>{const b=el('button',label,state.language===code?'active':'');b.onclick=()=>{setLanguage(code);state.language=code;render();};row.append(b);});c.append(row);c.append(el('p','Default comment tab: Raw / Radar · Show comment panel on startup · Max comments 200'));c.append(el('p','NG word filter toggle · Read-aloud toggle · Stability mode toggle'));c.append(el('p',t('localPrivacy')));c.append(el('p',t('streamKeyNotSaved')));c.append(el('button','Import settings'));c.append(el('button','Export settings'));m.append(c);return m;}
-function reportScreen(){const m=el('section',undefined,'main');const c=el('section',undefined,'card');c.append(el('h2',t('report')));const met=el('div',undefined,'metrics');['Duration 01:12:24','Average viewers 98','Peak viewers 140','Comments 246','Questions 71','Trouble count 9'].forEach(v=>met.append(el('span',v,'metric')));c.append(met);c.append(el('p','Charts: bitrate / dropped frames / cumulative comments / alert count (placeholder)'));c.append(el('p','Highlight candidates table + trouble history table'));const a=el('button',t('downloadReport'));a.onclick=()=>safeDownload('report.json',JSON.stringify({duration:'01:12:24'},null,2));const b=el('button',t('downloadLogs'));b.onclick=()=>safeDownload('logs.json',JSON.stringify([{message:'local preview'}],null,2));const d=el('button',t('downloadComments'));d.onclick=()=>safeDownload('comments.jsonl',state.comments.map((x)=>JSON.stringify(x)).join('\n'));c.append(a,b,d);m.append(c);return m;}
+function makeSimpleScreen(title, sections) { const m=el('section',undefined,'main'); const g=el('section',undefined,'panel dense-grid'); g.append(el('h2',title)); sections.forEach((s)=>{const c=el('article',undefined,'subcard'); c.append(el('h3',s[0]),el('p',s[1])); g.append(c);}); m.append(g); return m; }
+
+function prepareScreen(){
+  const m=el('section',undefined,'main');const wrap=el('section',undefined,'panel dense-grid');wrap.append(el('h2',t('prepare')));
+  ['Setup steps','Source cards','Platform cards','Account card','Stream details','Comment integration','Preview settings','Preview-ready CTA'].forEach((s)=>{const c=el('article',undefined,'subcard');c.append(el('h3',s),el('p',t('streamSetupSteps')));wrap.append(c);});
+  const r=el('input');r.placeholder='RTMP / RTMPS URL';r.value=state.localSettings.rtmpUrl;r.oninput=()=>{state.localSettings.rtmpUrl=r.value;localStorage.setItem('pcStandaloneSettings',JSON.stringify({rtmpUrl:r.value}));};
+  const k=el('input');k.type='password';k.placeholder=t('runtimeStreamKey');k.oninput=()=>{state.streamKey=k.value;};
+  wrap.append(r,k,el('p',t('streamKeyNotSaved')));wrap.append(el('button',t('openPreview')));m.append(wrap);return m;
+}
+function commentsScreen(){return makeSimpleScreen(t('comments'),[['Category chips','Raw / Radar / Questions / Warnings / Praise / Issues'],['Comment list','Chronological and priority views'],['Selected detail panel','Read / pin / done actions'],['Footer tools','Read queue / filter / NG settings']]);}
+function stabilityScreen(){return makeSimpleScreen(t('stability'),[['Alert summary cards','Audio / Network / Dropped / CPU'],['Active alerts list','Currently impacting stream'],['Recommendation card','Switch mode and reduce bitrate suggestions'],['Actions','Switch / Reassess / Open detailed settings']]);}
+function settingsScreen(){
+  const m = makeSimpleScreen(t('settings'), [['Setting groups','Stream / Input / Display / Comment / Read-aloud / Stability'],['Import/Export','Local settings only'],['Privacy note',t('localPrivacy')],['Security note',t('streamKeyNotSaved')]]);
+  m.querySelector('.dense-grid').append(languageToggle());
+  return m;
+}
+function reportScreen(){const m=el('section',undefined,'main');const c=el('section',undefined,'panel dense-grid');c.append(el('h2',t('report')));['Summary metric cards','Chart placeholders','Highlight candidates table','Trouble history table'].forEach((s)=>{const a=el('article',undefined,'subcard');a.append(el('h3',s),el('p','Mock desktop analytics view'));c.append(a);});const a=el('button',t('downloadReport'));a.onclick=()=>safeDownload('report.json',JSON.stringify({duration:'01:12:24'},null,2));const b=el('button',t('downloadLogs'));b.onclick=()=>safeDownload('logs.json',JSON.stringify([{message:'local preview'}],null,2));const d=el('button',t('downloadComments'));d.onclick=()=>safeDownload('comments.jsonl',state.comments.map((x)=>JSON.stringify(x)).join('\n'));c.append(a,b,d);m.append(c);return m;}
 
 function renderMain(){if(state.screen==='Live')return liveScreen();if(state.screen==='Prepare')return prepareScreen();if(state.screen==='Comments')return commentsScreen();if(state.screen==='Stability')return stabilityScreen();if(state.screen==='Settings')return settingsScreen();return reportScreen();}
 
-function render(){app.textContent='';const shell=el('main',undefined,'shell');const header=el('header',undefined,'topbar');header.append(el('h1','SmartLive PC Standalone'));header.append(el('div',`${t('streamStatus')}: ${t('previewOnly')} · YouTube · 00:18:42 · ${t('preset')}: ${t('stableMode')}`,'status'));const lang=el('div',undefined,'row');lang.append(el('span',t('language')));[['en',t('english')],['ja',t('japanese')]].forEach(([code,label])=>{const b=el('button',label,state.language===code?'active':'');b.onclick=()=>{setLanguage(code);state.language=code;render();};lang.append(b);});header.append(lang);shell.append(header);const body=el('div',undefined,'body');const side=el('aside',undefined,'sidebar');navItems.forEach((n)=>{const b=el('button',t(n.toLowerCase()),state.screen===n?'active':'');b.onclick=()=>{state.screen=n;render();};side.append(b);});body.append(side,renderMain());shell.append(body);app.append(shell);}render();
+function render(){
+  app.textContent='';
+  const shell=el('main',undefined,'shell');
+  const header=el('header',undefined,'topbar');
+  header.append(el('h1','SmartLive PC Standalone'));
+  const chips=el('div',undefined,'header-chips');
+  ['Platform: YouTube',`${t('streamStatus')}: Preview`,'00:18:42',`${t('preset')}: ${t('stableMode')}`,'Connection: Good'].forEach((x)=>chips.append(el('span',x,'chip')));
+  const right=el('div',undefined,'top-actions');
+  right.append(languageToggle(),el('button','Open preview'),el('button','End preview','danger'));
+  header.append(chips,right);
+  shell.append(header);
+
+  const body=el('div',undefined,'body');
+  const side=el('aside',undefined,'sidebar');
+  const brand = el('div', undefined, 'brand');
+  brand.append(el('span', '●', 'brand-icon'), el('strong', 'SmartLive'), el('small', 'Standalone'));
+  side.append(brand);
+  const nav = el('div', undefined, 'nav');
+  navItems.forEach((n)=>{const b=el('button',t(n.toLowerCase()),state.screen===n?'active':'');b.onclick=()=>{state.screen=n;render();};nav.append(b);});
+  side.append(nav);
+  const sys = el('div', undefined, 'side-status');
+  [['Connection','OK'],['Encoder','Stable'],['Dropped frames','0.42%'],['Bitrate','4.2 Mbps']].forEach(([k,v])=>{const r=el('div',undefined,'status-row');r.append(el('span',k),el('strong',v));sys.append(r);});
+  side.append(sys);
+  const foot = el('div', undefined, 'side-footer');
+  foot.append(el('small','v0.3.x'),el('button','Help / Manual'));
+  side.append(foot);
+
+  body.append(side,renderMain());
+  shell.append(body);
+  app.append(shell);
+}
+
+render();
