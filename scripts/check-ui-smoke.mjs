@@ -36,7 +36,7 @@ const cases = [
   {
     id: 'pc-standalone',
     files: ['apps/pc-standalone/index.html', 'apps/pc-standalone/src/main.js'],
-    terms: ['Use camera', 'Use screen/window', 'Enable microphone', 'Validate target locally', 'Add comment', 'Download logs.json', 'Download report.json', 'Download comments.jsonl', 'Raw', 'Radar'],
+    terms: ['Live','Prepare','Comments','Stability','Settings','Report','Language','English','日本語','Raw','Radar','Use camera','Use screen/window','Enable microphone','Validate target locally','Stream key is not saved','Download report.json','Download logs.json','Download comments.jsonl'],
     blocked: []
   },
   {
