@@ -42,7 +42,7 @@ const cases = [
   {
     id: 'mobile',
     files: ['apps/mobile/index.html', 'apps/mobile/src/main.js'],
-    terms: ['Load bundled sample data', 'Raw mode', 'Radar mode', 'Check camera preview', 'Check microphone level', 'Validate target locally', 'data-scroll-target', 'comments-section', 'settings-section'],
+    terms: ['配信中メイン画面', 'コメントセンター', '配信の安定化', '配信レポート', '配信準備', 'Radar', 'data-target'],
     blocked: []
   }
 ];
