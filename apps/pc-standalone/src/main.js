@@ -6,6 +6,8 @@ if (!app) throw new Error('PC Standalone app root not found.');
 const PERSIST_KEY = 'pcStandaloneSettings';
 const SAFE_PERSIST_KEYS = new Set(['rtmpUrl', 'selectedSource', 'selectedPlatform', 'selectedPreset', 'defaultCommentTab', 'showCommentPanel', 'maxComments', 'readAloudEnabled', 'stabilityModeEnabled', 'autoSuggestionEnabled', 'themeColor', 'appScale']);
 const RADAR_PRIORITY = { warning: 0, question: 1, issue: 2, general: 2, praise: 3 };
+const navItems = ['Live', 'Prepare', 'Comments', 'Stability', 'Settings', 'Report'];
+const tabs = ['Stream settings', 'Input settings', 'Display settings', 'Comment settings', 'Read-aloud settings', 'Stability settings'];
 
 const baseComments = [
   { id: 'c1', time: '12:28:31', author: 'takebon', handle: '@takebon_live', radar: 'warning', category: 'Audio/video trouble', message: 'Audio may be a little quiet.' },
@@ -14,138 +16,60 @@ const baseComments = [
   { id: 'c4', time: '12:29:10', author: 'ops_bot', handle: '@ops_monitor', radar: 'issue', category: 'Audio/video trouble', message: 'Minor frame jitter detected.' }
 ];
 
-const defaults = {
-  screen: 'Live',
-  language: getLanguage(),
-  commentMode: 'Raw',
-  selectedComment: 'c1',
+const defaults = { screen: 'Live', language: getLanguage(), commentMode: 'Raw', selectedComment: 'c1',
   comments: baseComments.map((c) => ({ ...c, pinned: false, done: false, hidden: false, muted: false, read: false })),
-  prepare: {
-    selectedSource: 'Screen', selectedPlatform: 'Custom RTMP', selectedPreset: 'Stable', rtmpUrl: '', validationStatus: 'Missing target',
-    title: '', category: '', streamLanguage: 'English', commentIntegration: 'YouTube comments ON / Twitch OFF / Raw default'
-  },
-  settings: {
-    activeSettingsTab: 'Stream settings', defaultCommentTab: 'Raw', showCommentPanel: true, maxComments: 100,
-    readAloudEnabled: true, stabilityModeEnabled: false, autoSuggestionEnabled: true, themeColor: 'blue', appScale: '100%',
-    resolutionFps: '1280x720 @ 30fps', videoBitrate: '4500', audioBitrate: '160'
-  },
-  stability: { stabilityMode: false, lastAction: 'Idle', reassessCount: 0, recommendationApplied: false },
+  prepare: { selectedSource: 'Screen', selectedPlatform: 'YouTube', selectedPreset: 'Stable', rtmpUrl: '', validationStatus: 'Missing target' },
+  settings: { activeSettingsTab: 'Stream settings', defaultCommentTab: 'Raw', showCommentPanel: true, maxComments: 100, readAloudEnabled: true, stabilityModeEnabled: false, autoSuggestionEnabled: true, resolutionFps: '1280x720 @ 30fps', videoBitrate: '4500', audioBitrate: '160' },
+  stability: { stabilityMode: false, lastAction: 'Idle', reassessCount: 0 },
   report: { statusMessage: '' }
 };
 
-function loadSafePersisted() {
-  const raw = JSON.parse(localStorage.getItem(PERSIST_KEY) || '{}');
-  const safe = {};
-  Object.entries(raw).forEach(([k, v]) => { if (SAFE_PERSIST_KEYS.has(k)) safe[k] = v; });
-  return safe;
-}
-
-const persisted = loadSafePersisted();
 const state = structuredClone(defaults);
-Object.assign(state.prepare, { rtmpUrl: persisted.rtmpUrl || '', selectedSource: persisted.selectedSource || defaults.prepare.selectedSource, selectedPlatform: persisted.selectedPlatform || defaults.prepare.selectedPlatform, selectedPreset: persisted.selectedPreset || defaults.prepare.selectedPreset });
-Object.assign(state.settings, {
-  defaultCommentTab: persisted.defaultCommentTab || defaults.settings.defaultCommentTab,
-  showCommentPanel: persisted.showCommentPanel ?? defaults.settings.showCommentPanel,
-  maxComments: persisted.maxComments ?? defaults.settings.maxComments,
-  readAloudEnabled: persisted.readAloudEnabled ?? defaults.settings.readAloudEnabled,
-  stabilityModeEnabled: persisted.stabilityModeEnabled ?? defaults.settings.stabilityModeEnabled,
-  autoSuggestionEnabled: persisted.autoSuggestionEnabled ?? defaults.settings.autoSuggestionEnabled,
-  themeColor: persisted.themeColor || defaults.settings.themeColor,
-  appScale: persisted.appScale || defaults.settings.appScale
-});
-state.commentMode = state.settings.defaultCommentTab;
+Object.assign(state.prepare, JSON.parse(localStorage.getItem(PERSIST_KEY) || '{}'));
 
-const navItems = ['Live', 'Prepare', 'Comments', 'Stability', 'Settings', 'Report'];
-const legacyTerms = ['Scene: Game Main','Screen capture','Microphone','Upload speed','CPU usage','GPU usage','Connected','Setup steps','Comment integration','Alert summary','Stability mode recommended','Summary metric cards','Highlight candidates','Trouble history','Ready for preview'];
 const el = (tag, txt, cls) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt !== undefined) n.textContent = txt; return n; };
-
-function persistSafeSettings() {
-  const safe = {
-    rtmpUrl: state.prepare.rtmpUrl, selectedSource: state.prepare.selectedSource, selectedPlatform: state.prepare.selectedPlatform, selectedPreset: state.prepare.selectedPreset,
-    defaultCommentTab: state.settings.defaultCommentTab, showCommentPanel: state.settings.showCommentPanel, maxComments: state.settings.maxComments,
-    readAloudEnabled: state.settings.readAloudEnabled, stabilityModeEnabled: state.settings.stabilityModeEnabled, autoSuggestionEnabled: state.settings.autoSuggestionEnabled,
-    themeColor: state.settings.themeColor, appScale: state.settings.appScale
-  };
-  localStorage.setItem(PERSIST_KEY, JSON.stringify(safe));
-}
-
-function assertNoSecretsInExport(text) {
-  const low = text.toLowerCase();
-  if (/"(streamkey|password|secret|token)"\s*:\s*(?!\s*false\b)/i.test(text)) throw new Error('blocked secret field in export');
-  if (/(streamkey|password|secret|token)\s*[:=]\s*['\"](?!false\b)/i.test(text) || low.includes('obs password')) throw new Error('blocked secret-like value in export');
-  return true;
-}
-
-function visibleComments() {
-  return orderedComments().filter((c) => !c.hidden).slice(0, state.settings.maxComments);
-}
-function orderedComments() {
-  return state.commentMode === 'Raw' ? [...state.comments] : [...state.comments].sort((a, b) => (RADAR_PRIORITY[a.radar] ?? 9) - (RADAR_PRIORITY[b.radar] ?? 9));
-}
+const persistSafeSettings = () => localStorage.setItem(PERSIST_KEY, JSON.stringify(Object.fromEntries(Object.entries({ ...state.prepare, ...state.settings }).filter(([k]) => SAFE_PERSIST_KEYS.has(k)))));
+function assertNoSecretsInExport(text) { const low = text.toLowerCase(); if (/"(streamkey|password|secret|token)"\s*:\s*(?!\s*false\b)/i.test(text) || /(streamkey|password|secret|token)\s*[:=]\s*['"](?!false\b)/i.test(text) || low.includes('obs password')) throw new Error('blocked secret field in export'); return true; }
+function orderedComments() { return state.commentMode === 'Raw' ? [...state.comments] : [...state.comments].sort((a, b) => (RADAR_PRIORITY[a.radar] ?? 9) - (RADAR_PRIORITY[b.radar] ?? 9)); }
+function visibleComments() { return orderedComments().filter((c) => !c.hidden).slice(0, state.settings.maxComments); }
 function selectedCommentObj() { return state.comments.find((c) => c.id === state.selectedComment) || state.comments[0]; }
-function markAction(message) { state.report.statusMessage = message; }
-function updateComment(id, patch) { const c = state.comments.find((x) => x.id === id); if (!c) return; Object.assign(c, patch); render(); }
-function safeDownload(filename, text) { assertNoSecretsInExport(text); const blob = new Blob([text], { type: 'application/json;charset=utf-8' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+function updateComment(id, patch) { Object.assign(state.comments.find((c) => c.id === id) || {}, patch); }
+function safeDownload(filename, text) { assertNoSecretsInExport(text); const blob = new Blob([text], { type: 'application/json;charset=utf-8' }); const url = URL.createObjectURL(blob); const a = el('a'); a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
 
-function languageToggle() { const lang = el('div', undefined, 'row lang-toggle'); lang.append(el('span', t('language'))); [['en', t('english')], ['ja', t('japanese')]].forEach(([c, l]) => { const b = el('button', l, state.language === c ? 'active' : ''); b.onclick = () => { setLanguage(c); state.language = c; render(); }; lang.append(b); }); return lang; }
-function sidebar() { const side = el('aside', undefined, 'sidebar'); const nav = el('nav', undefined, 'nav'); navItems.forEach((n) => { const b = el('button', t(n.toLowerCase()), state.screen === n ? 'active nav-btn' : 'nav-btn'); b.onclick = () => { state.screen = n; render(); }; nav.append(b); }); const status = el('section', undefined, 'status-card'); [['Connection', 'OK'], ['Encoder', state.stability.stabilityMode ? 'Stability mode ON' : 'Stable'], ['Dropped frames', '0.42%'], ['Bitrate', '4.2 Mbps']].forEach(([k, v]) => { const r = el('div', undefined, 'kv'); r.append(el('span', k), el('strong', v)); status.append(r); }); side.append(nav, status); return side; }
+function languageToggle() { const d = el('div', undefined, 'row'); d.append(el('span', t('language'))); [['en', t('english')], ['ja', t('japanese')]].forEach(([k, v]) => { const b = el('button', v, state.language === k ? 'active' : ''); b.onclick = () => { setLanguage(k); state.language = k; render(); }; d.append(b); }); return d; }
 
-function buildCommentsPanel() { const wrap = el('section', undefined, 'panel comments-panel'); const tabs = el('div', undefined, 'tabs'); ['Raw', 'Radar'].forEach((m) => { const b = el('button', m, state.commentMode === m ? 'active' : ''); b.onclick = () => { state.commentMode = m; render(); }; tabs.append(b); }); wrap.append(tabs); const list = el('div', undefined, 'comment-list'); visibleComments().forEach((c) => { const it = el('article', undefined, `comment ${c.radar} ${state.selectedComment === c.id ? 'selected' : ''}`); it.onclick = () => { state.selectedComment = c.id; render(); }; const marks = `${c.pinned ? 'Pinned ' : ''}${c.done ? 'Done ' : ''}${c.muted ? 'Muted' : ''}`.trim(); it.append(el('p', c.message), el('small', marks || '')); list.append(it); }); wrap.append(list); return wrap; }
+function sidebar() { const side = el('aside', undefined, 'sidebar'); const brand = el('div', undefined, 'brand'); brand.append(el('strong', 'SmartLive'), el('span', '●', 'brand-dot'), el('span', 'Standalone', 'chip')); side.append(brand); const nav = el('nav', undefined, 'nav'); navItems.forEach((n) => { const b = el('button', t(n.toLowerCase()), state.screen === n ? 'nav-btn active' : 'nav-btn'); b.onclick = () => { state.screen = n; render(); }; nav.append(b); }); side.append(nav); const s = el('section', undefined, 'status-card'); [['Connection', 'OK'], ['Encoder', state.stability.stabilityMode ? 'Stability mode ON' : 'Stable'], ['Dropped frames', '0.42%'], ['Bitrate', '4.2 Mbps']].forEach(([k, v]) => { const r = el('div', undefined, 'kv'); r.append(el('span', k), el('strong', v)); s.append(r); }); side.append(s); const f = el('div', undefined, 'sidebar-foot'); f.append(el('span', 'v0.3.x'), el('span', 'Help / Manual')); side.append(f); return side; }
 
-function liveScreen() { const area = el('section', undefined, 'main'); const g = el('div', undefined, 'live-shell'); g.append(el('section', 'LIVE PREVIEW', 'panel')); if (state.settings.showCommentPanel) g.append(buildCommentsPanel()); area.append(g); return area; }
+function commentCards(parent, compact = false) { const list = el('div', undefined, 'comment-list'); visibleComments().forEach((c) => { const it = el('article', undefined, `comment ${c.radar} ${state.selectedComment === c.id ? 'selected' : ''}`); it.onclick = () => { state.selectedComment = c.id; render(); }; const marks = [c.read && 'Read', c.pinned && 'Pinned', c.done && 'Done', c.muted && 'Muted'].filter(Boolean).join(' · '); it.append(el('div', `${c.time} ${c.author} ${c.handle}`, 'comment-meta'), el('p', c.message), el('small', `${c.category}${marks ? ` · ${marks}` : ''}`)); list.append(it); }); parent.append(list); if (compact) return; const sel = selectedCommentObj(); const detail = el('aside', undefined, 'subcard'); detail.append(el('h3', 'Selected comment'), el('p', sel.message), el('p', `Read queued: ${sel.read ? 'Yes' : 'No'}`)); [['Read aloud', () => { updateComment(sel.id, { read: true }); state.report.statusMessage = 'Read queued'; }], ['Pin', () => updateComment(sel.id, { pinned: !sel.pinned })], ['Mark done', () => updateComment(sel.id, { done: !sel.done })], ['Hide comment', () => updateComment(sel.id, { hidden: true })], ['Mute user', () => updateComment(sel.id, { muted: true })]].forEach(([label, fn]) => { const b = el('button', label); b.onclick = () => { fn(); render(); }; detail.append(b); }); parent.append(detail); }
 
-function prepareScreen() { const m = el('section', undefined, 'main'); const g = el('section', undefined, 'panel dense'); const mkCards = (title, values, selectedKey, cb) => { g.append(el('h3', title)); const row = el('div', undefined, 'card-grid'); values.forEach((v) => { const c = el('button', v, `subcard ${state.prepare[selectedKey] === v ? 'active' : ''}`); c.onclick = () => { state.prepare[selectedKey] = v; persistSafeSettings(); render(); }; row.append(c); }); g.append(row); };
-  mkCards('Source selection', ['Screen', 'Window', 'Camera', 'Mic only'], 'selectedSource');
-  mkCards('Platform selection', ['YouTube', 'Twitch', 'Custom RTMP'], 'selectedPlatform');
-  mkCards('Preset', ['Stable', 'Balanced', 'High quality', 'Low latency'], 'selectedPreset');
-  const rt = el('article', undefined, 'subcard'); const r = el('input'); r.placeholder = 'RTMP / RTMPS URL'; r.value = state.prepare.rtmpUrl; r.oninput = () => { state.prepare.rtmpUrl = r.value; persistSafeSettings(); }; const k = el('input'); k.type = 'password'; k.placeholder = t('runtimeStreamKey');
-  const status = el('p', `Validation status: ${state.prepare.validationStatus}`);
-  const b = el('button', t('validateSetup')); b.onclick = () => { const u = state.prepare.rtmpUrl.trim(); state.prepare.validationStatus = !u ? 'Missing target' : (u.startsWith('rtmp://') || u.startsWith('rtmps://')) ? 'OK' : 'Invalid target'; k.value = ''; render(); };
-  rt.append(r, k, el('p', t('streamKeyNotSaved')), b, status); g.append(rt); m.append(g); return m; }
+function liveScreen() { const m = el('section', undefined, 'main'); const l = el('section', undefined, 'panel live-shell'); const left = el('div'); const preview = el('div', undefined, 'preview-surface'); preview.append(el('span', 'PREVIEW', 'badge'), el('span', 'LIVE', 'badge live'), el('span', 'Scene: Game Main', 'chip scene-chip'), el('div', undefined, 'radar'), el('div', 'Subject / frame', 'subject')); const hud = el('div', undefined, 'hud-left'); ['Health 94%', 'Stability 88%', 'Latency 68ms'].forEach((x) => hud.append(el('div', x, 'hud-bar'))); preview.append(hud); const right = el('div', undefined, 'hud-right'); ['REC', 'NET', 'CAM'].forEach((x) => right.append(el('span', x, 'pill'))); preview.append(right); left.append(preview);
+  const control = el('div', undefined, 'toolbar'); ['Scene selector','Edit','Switch','Mic meter','System meter','⛶'].forEach((x) => control.append(el('button', x))); left.append(control);
+  const sources = el('div', undefined, 'card-grid cols-3'); ['Screen capture','Camera','Microphone'].forEach((x,i)=>{const c=el('article',undefined,'subcard source');c.append(el('h3',x),el('span',i===1?'disabled':'enabled','chip'),el('span','⋯','menu-dots'));sources.append(c);}); left.append(sources);
+  const metrics = el('div', undefined, 'card-grid'); [['Audio','-12 dB'],['Upload speed','4.6 Mbps'],['Bitrate','4.2 Mbps'],['Dropped frames','0.42%'],['CPU usage','34%'],['GPU usage','41%'],['Viewers','124']].forEach(([k,v])=>{const c=el('article',undefined,'subcard metric');c.append(el('p',k),el('strong',v));metrics.append(c);}); left.append(metrics);
+  const strip = el('div', undefined, 'status-strip'); ['Connected','Preview only','Auto reconnect ON','Radar ON','Local rec OFF','00:18:42','/mock/save/path'].forEach((x)=>strip.append(el('span',x,'chip'))); strip.append(el('span', state.stability.stabilityMode ? 'Stability mode ON' : 'Encoder stable', 'chip')); left.append(strip);
+  l.append(left); if (state.settings.showCommentPanel) { const panel = el('section', undefined, 'panel'); const tbs = el('div', undefined, 'tabs'); ['Raw','Radar'].forEach((x)=>{const b=el('button',x,state.commentMode===x?'active':'');b.onclick=()=>{state.commentMode=x;render();};tbs.append(b);}); panel.append(tbs); commentCards(panel, true); l.append(panel);} m.append(l); return m; }
 
-function commentsScreen() { const m = el('section', undefined, 'main'); const w = el('section', undefined, 'panel'); const tabs = el('div', undefined, 'toolbar'); ['Raw', 'Radar'].forEach((x) => { const b = el('button', x, state.commentMode === x ? 'active' : ''); b.onclick = () => { state.commentMode = x; state.settings.defaultCommentTab = x; persistSafeSettings(); render(); }; tabs.append(b); }); w.append(tabs);
-  const grid = el('div', undefined, 'comments-grid'); const list = el('div', undefined, 'comment-list'); visibleComments().forEach((c) => { const it = el('article', undefined, `comment ${state.selectedComment === c.id ? 'selected' : ''}`); it.onclick = () => { state.selectedComment = c.id; render(); }; it.append(el('p', `${c.author}: ${c.message}`), el('small', `${c.pinned ? 'Pinned ' : ''}${c.done ? 'Done ' : ''}${c.muted ? 'Muted' : ''}`)); list.append(it); });
-  const sel = selectedCommentObj(); const d = el('aside', undefined, 'subcard'); d.append(el('h3', 'Selected comment'), el('p', sel.message), el('p', state.report.statusMessage || ''));
-  [['Read aloud', () => { updateComment(sel.id, { read: true }); markAction('Read queued'); }], ['Pin', () => { updateComment(sel.id, { pinned: !sel.pinned }); }], ['Mark done', () => { updateComment(sel.id, { done: !sel.done }); }], ['Hide comment', () => { updateComment(sel.id, { hidden: true }); }], ['Mute user', () => { updateComment(sel.id, { muted: true }); }]].forEach(([name, fn]) => { const b = el('button', name); b.onclick = () => { fn(); render(); }; d.append(b); });
-  grid.append(list, d); w.append(grid); m.append(w); return m; }
+function prepareScreen(){ const m=el('section',undefined,'main'); const p=el('section',undefined,'panel dense'); p.append(el('h2','Prepare')); p.append(el('p','Setup steps','muted')); const steps=el('div',undefined,'steps'); ['Source','Platform','Video / Audio','Details','Check'].forEach((s,i)=>steps.append(el('span',s,`step ${i===0?'active':''}`))); p.append(steps);
+  const mk=(ttl,key,arr)=>{p.append(el('h3',ttl));const g=el('div',undefined,'card-grid');arr.forEach((v)=>{const b=el('button',v,`subcard ${state.prepare[key]===v?'active':''}`);b.onclick=()=>{state.prepare[key]=v;persistSafeSettings();render();};g.append(b);});p.append(g);};
+  mk('Source selection','selectedSource',['Screen','Window','Camera','Mic only']); mk('Platform selection','selectedPlatform',['YouTube','Twitch','Custom RTMP']); mk('Preset','selectedPreset',['Stable','Balanced','High quality','Low latency']);
+  const rt=el('article',undefined,'subcard'); const r=el('input'); r.placeholder='RTMP / RTMPS URL'; r.value=state.prepare.rtmpUrl; r.oninput=()=>{state.prepare.rtmpUrl=r.value;persistSafeSettings();}; const key=el('input'); key.type='password'; key.placeholder=t('runtimeStreamKey'); const b=el('button',t('validateSetup')); b.onclick=()=>{const u=state.prepare.rtmpUrl.trim();state.prepare.validationStatus=!u?'Missing target':(u.startsWith('rtmp://')||u.startsWith('rtmps://'))?'OK':'Invalid target';key.value='';render();}; rt.append(r,key,el('p',t('streamKeyNotSaved')),b,el('p',`Validation status: ${state.prepare.validationStatus}`)); p.append(rt, el('article','Comment integration: enabled','subcard'), el('article','Ready for preview','subcard')); m.append(p); return m; }
 
-function stabilityScreen() { const m = el('section', undefined, 'main'); const p = el('section', undefined, 'panel'); const s = el('p', state.stability.stabilityMode ? 'Stability mode ON' : 'Stability mode OFF');
-  const on = el('button', t('switchToStabilityMode')); on.onclick = () => { state.stability.stabilityMode = true; state.stability.recommendationApplied = true; state.stability.lastAction = 'Stability mode ON'; state.settings.stabilityModeEnabled = true; markAction('Stability mode ON'); persistSafeSettings(); render(); };
-  const later = el('button', t('reassessLater')); later.onclick = () => { state.stability.reassessCount += 1; state.stability.lastAction = 'Reassess scheduled'; markAction('Reassess scheduled'); render(); };
-  const open = el('button', t('openDetailedSettings')); open.onclick = () => { state.screen = 'Settings'; state.settings.activeSettingsTab = 'Stability settings'; render(); };
-  p.append(s, on, later, open, el('p', `Reassess count: ${state.stability.reassessCount}`)); m.append(p); return m; }
+function commentsScreen(){ const m=el('section',undefined,'main'); const p=el('section',undefined,'panel'); p.append(el('h2','Comments')); const top=el('div',undefined,'toolbar'); ['Raw','Radar'].forEach((x)=>{const b=el('button',x,state.commentMode===x?'active':'');b.onclick=()=>{state.commentMode=x;state.settings.defaultCommentTab=x;persistSafeSettings();render();};top.append(b);}); ['All','Questions','Audio/video trouble','Hype','Held / risky'].forEach((x)=>top.append(el('span',x,'chip'))); const s=el('input'); s.placeholder='Search comments'; top.append(s,el('button','Filter')); p.append(top); const grid=el('div',undefined,'comments-grid'); commentCards(grid,false); p.append(grid); const foot=el('div',undefined,'toolbar'); foot.append(el('span',`Read queue count: ${state.comments.filter((c)=>c.read).length}`,'chip'),el('button','Filter'),el('button','NG settings'),el('span','Selected count: 1','chip'),el('button','Prev'),el('button','Next')); p.append(foot); m.append(p); return m; }
 
-function settingsScreen() { const m = el('section', undefined, 'main'); const p = el('section', undefined, 'panel'); const tabs = ['Stream settings', 'Input settings', 'Display settings', 'Comment settings', 'Read-aloud settings', 'Stability settings']; const tr = el('div', undefined, 'tabs');
-  tabs.forEach((x) => { const b = el('button', x, state.settings.activeSettingsTab === x ? 'active' : ''); b.onclick = () => { state.settings.activeSettingsTab = x; render(); }; tr.append(b); }); p.append(tr);
-  const active = el('article', undefined, 'subcard'); active.append(el('h3', state.settings.activeSettingsTab));
-  if (state.settings.activeSettingsTab === 'Stream settings') {
-    const plat = el('input'); plat.value = state.prepare.selectedPlatform; plat.oninput = () => { state.prepare.selectedPlatform = plat.value; persistSafeSettings(); };
-    const res = el('input'); res.value = state.settings.resolutionFps; res.oninput = () => { state.settings.resolutionFps = res.value; };
-    const vb = el('input'); vb.value = state.settings.videoBitrate; vb.oninput = () => { state.settings.videoBitrate = vb.value; };
-    const ab = el('input'); ab.value = state.settings.audioBitrate; ab.oninput = () => { state.settings.audioBitrate = ab.value; };
-    active.append(plat, res, vb, ab);
-  }
-  if (state.settings.activeSettingsTab === 'Comment settings') {
-    ['Raw', 'Radar'].forEach((x) => { const b = el('button', x, state.settings.defaultCommentTab === x ? 'active' : ''); b.onclick = () => { state.settings.defaultCommentTab = x; state.commentMode = x; render(); }; active.append(b); });
-    const show = el('button', `show comment panel: ${state.settings.showCommentPanel ? 'ON' : 'OFF'}`); show.onclick = () => { state.settings.showCommentPanel = !state.settings.showCommentPanel; render(); };
-    const max = el('input'); max.type = 'number'; max.value = String(state.settings.maxComments); max.oninput = () => { state.settings.maxComments = Math.max(1, Number(max.value) || 1); };
-    active.append(show, max);
-  }
-  if (state.settings.activeSettingsTab === 'Read-aloud settings') { const b = el('button', `Enable read-aloud: ${state.settings.readAloudEnabled ? 'ON' : 'OFF'}`); b.onclick = () => { state.settings.readAloudEnabled = !state.settings.readAloudEnabled; render(); }; active.append(b); }
-  if (state.settings.activeSettingsTab === 'Stability settings') { const a = el('button', `Stability mode: ${state.settings.stabilityModeEnabled ? 'ON' : 'OFF'}`); a.onclick = () => { state.settings.stabilityModeEnabled = !state.settings.stabilityModeEnabled; render(); }; const b = el('button', `Auto suggestion: ${state.settings.autoSuggestionEnabled ? 'ON' : 'OFF'}`); b.onclick = () => { state.settings.autoSuggestionEnabled = !state.settings.autoSuggestionEnabled; render(); }; active.append(a, b); }
-  p.append(active);
-  const bar = el('div', undefined, 'toolbar');
-  [['Import settings', () => markAction('Import settings (mock)')], ['Export settings', () => safeDownload('settings.json', JSON.stringify({ prepare: { selectedPlatform: state.prepare.selectedPlatform, rtmpUrl: state.prepare.rtmpUrl, selectedSource: state.prepare.selectedSource, selectedPreset: state.prepare.selectedPreset }, settings: { ...state.settings } }, null, 2))], ['Reset to defaults', () => { Object.assign(state.prepare, defaults.prepare); Object.assign(state.settings, defaults.settings); state.commentMode = 'Raw'; persistSafeSettings(); markAction('Settings reset locally'); render(); }], ['Cancel', () => markAction('Cancel (mock)')], ['Save', () => { persistSafeSettings(); markAction('Settings saved locally'); render(); }]].forEach(([label, fn]) => { const b = el('button', label); b.onclick = fn; bar.append(b); });
-  p.append(bar, el('p', state.report.statusMessage || ''), languageToggle()); m.append(p); return m; }
+function stabilityScreen(){ const m=el('section',undefined,'main'); const p=el('section',undefined,'panel dense'); p.append(el('h2','Stability')); const cards=el('div',undefined,'card-grid'); ['Audio issue','Network unstable','Dropped frames','CPU high load'].forEach((x)=>cards.append(el('article',x,'subcard'))); p.append(cards,el('article','Alert summary / Active alerts list','subcard')); const rec=el('article',undefined,'subcard'); rec.append(el('h3','Stability mode recommended'),el('p','image impact low'),el('p','latency impact low'),el('p','viewer experience improved'),el('p','bitrate/fps/BGM/keyframe adjustments')); p.append(rec);
+ const actions=el('div',undefined,'toolbar'); const on=el('button',t('switchToStabilityMode')); on.onclick=()=>{state.stability.stabilityMode=true;state.settings.stabilityModeEnabled=true;state.stability.lastAction='Stability mode ON';persistSafeSettings();render();}; const later=el('button',t('reassessLater')); later.onclick=()=>{state.stability.reassessCount+=1;state.stability.lastAction='Reassess scheduled';render();}; const open=el('button',t('openDetailedSettings')); open.onclick=()=>{state.screen='Settings';state.settings.activeSettingsTab='Stability settings';render();}; actions.append(on,later,open); p.append(actions,el('p',`Stability mode ${state.stability.stabilityMode?'ON':'OFF'}`),el('p',`Reassess count: ${state.stability.reassessCount}`),el('p',`last action: ${state.stability.lastAction}`)); m.append(p); return m; }
 
-function reportScreen() { const m = el('section', undefined, 'main'); const p = el('section', undefined, 'panel');
-  const e = el('div', undefined, 'toolbar');
-  const report = el('button', t('downloadReport')); report.onclick = () => safeDownload('report.json', JSON.stringify({ screen: state.screen, language: state.language, commentMode: state.commentMode, stability: state.stability, prepare: { selectedSource: state.prepare.selectedSource, selectedPlatform: state.prepare.selectedPlatform, selectedPreset: state.prepare.selectedPreset, rtmpUrl: state.prepare.rtmpUrl, validationStatus: state.prepare.validationStatus }, streamKeySaved: false }, null, 2));
-  const logs = el('button', t('downloadLogs')); logs.onclick = () => safeDownload('logs.json', JSON.stringify([{ level: 'info', message: 'local mock log' }, { level: 'info', message: state.report.statusMessage || 'idle' }], null, 2));
-  const comments = el('button', t('downloadComments')); comments.onclick = () => safeDownload('comments.jsonl', state.comments.map((x) => JSON.stringify(x)).join('\n'));
-  p.append(e, report, logs, comments);
-  m.append(p); return m; }
+function settingsScreen(){ const m=el('section',undefined,'main'); const p=el('section',undefined,'panel'); p.append(el('h2','Settings')); const tr=el('div',undefined,'tabs'); tabs.forEach((x)=>{const b=el('button',x,state.settings.activeSettingsTab===x?'active':'');b.onclick=()=>{state.settings.activeSettingsTab=x;render();};tr.append(b);}); p.append(tr); const a=el('article',undefined,'subcard'); a.append(el('h3',state.settings.activeSettingsTab)); if(state.settings.activeSettingsTab==='Stream settings'){ ['platform','stream target','resolution/FPS','video bitrate','audio bitrate','protocol','connection test'].forEach((x)=>a.append(el('p',x))); a.append(el('p','stream key is not saved')); }
+ if(state.settings.activeSettingsTab==='Comment settings'){ a.append(el('p','default comment tab Raw/Radar'),el('p','show comment panel on startup'),el('p',`max comments: ${state.settings.maxComments}`)); }
+ if(state.settings.activeSettingsTab==='Read-aloud settings'){ const b=el('button',`enable read-aloud: ${state.settings.readAloudEnabled?'ON':'OFF'}`); b.onclick=()=>{state.settings.readAloudEnabled=!state.settings.readAloudEnabled;render();}; a.append(b); }
+ if(state.settings.activeSettingsTab==='Stability settings'){ const b=el('button',`stability mode: ${state.settings.stabilityModeEnabled?'ON':'OFF'}`); b.onclick=()=>{state.settings.stabilityModeEnabled=!state.settings.stabilityModeEnabled;render();}; a.append(b,el('p',`auto suggestion: ${state.settings.autoSuggestionEnabled?'ON':'OFF'}`)); }
+ p.append(a); const bar=el('div',undefined,'toolbar'); [['Import settings',()=>{}],['Export settings',()=>safeDownload('settings.json',JSON.stringify({prepare:{selectedSource:state.prepare.selectedSource,selectedPlatform:state.prepare.selectedPlatform,selectedPreset:state.prepare.selectedPreset,rtmpUrl:state.prepare.rtmpUrl},settings:{...state.settings},streamKeySaved:false},null,2))],['Reset to defaults',()=>{Object.assign(state.prepare,defaults.prepare);Object.assign(state.settings,defaults.settings);state.commentMode='Raw';persistSafeSettings();state.report.statusMessage='Settings reset locally';render();}],['Cancel',()=>{}],['Save',()=>{persistSafeSettings();state.report.statusMessage='Settings saved locally';render();}]].forEach(([l,fn])=>{const b=el('button',l);b.onclick=fn;bar.append(b);}); p.append(bar,el('p',state.report.statusMessage||'')); m.append(p); return m; }
 
-const renderMain = () => (state.screen === 'Live' ? liveScreen() : state.screen === 'Prepare' ? prepareScreen() : state.screen === 'Comments' ? commentsScreen() : state.screen === 'Stability' ? stabilityScreen() : state.screen === 'Settings' ? settingsScreen() : reportScreen());
-function render() { app.textContent = ''; const shell = el('main', undefined, 'shell'); const header = el('header', undefined, 'topbar'); header.append(el('h1', 'SmartLive PC Standalone')); const chips = el('div', undefined, 'header-chips'); ['Validation status', 'Read queued', 'Pinned', 'Done', 'Muted', 'Stream key is not saved'].forEach((x) => chips.append(el('span', x, 'chip'))); header.append(chips, languageToggle()); const legacy = el('div', undefined, 'muted'); legacyTerms.forEach((x)=>legacy.append(el('span', x, 'chip'))); header.append(legacy); shell.append(header); const body = el('div', undefined, 'body'); body.append(sidebar(), renderMain()); shell.append(body); app.append(shell); }
+function reportScreen(){ const m=el('section',undefined,'main'); const p=el('section',undefined,'panel dense'); p.append(el('h2','Report')); const metrics=el('div',undefined,'card-grid'); [['Stream duration','00:18:42'],['Average viewers','96'],['Peak viewers','124'],['Comments','48'],['Questions','12'],['Trouble count','4']].forEach(([k,v])=>{const c=el('article',undefined,'subcard metric');c.append(el('p',k),el('strong',v));metrics.append(c);}); p.append(el('p','Summary metric cards','muted')); p.append(metrics); const charts=el('div',undefined,'card-grid'); ['Bitrate','Dropped frames','Cumulative comments','Alert count'].forEach((x)=>{const c=el('article',undefined,'subcard');c.append(el('p',x),el('div',undefined,'chart'));charts.append(c);}); p.append(charts);
+  p.append(el('h3','Highlight candidates')); const h=el('div',undefined,'table-head'); ['Time','Title','Reason','Action'].forEach((x)=>h.append(el('strong',x))); p.append(h); const hr=el('div',undefined,'table-row'); ['00:07:14','Q&A peak','High engagement','Clip'].forEach((x)=>hr.append(el('span',x))); p.append(hr);
+  p.append(el('h3','Trouble history')); const trow=el('div',undefined,'table-head'); ['Time','Type','Detail','Impact'].forEach((x)=>trow.append(el('strong',x))); p.append(trow); const tr=el('div',undefined,'table-row'); ['00:11:20','Network','Temporary jitter','Low'].forEach((x)=>tr.append(el('span',x))); p.append(tr);
+  const e=el('div',undefined,'toolbar'); [['Download report.json',()=>safeDownload('report.json',JSON.stringify({screen:state.screen,commentMode:state.commentMode,stability:state.stability,prepare:{selectedSource:state.prepare.selectedSource,selectedPlatform:state.prepare.selectedPlatform,selectedPreset:state.prepare.selectedPreset,rtmpUrl:state.prepare.rtmpUrl,validationStatus:state.prepare.validationStatus},streamKeySaved:false},null,2))],['Download logs.json',()=>safeDownload('logs.json',JSON.stringify([{level:'info',message:'local mock log'}],null,2))],['Download comments.jsonl',()=>safeDownload('comments.jsonl',state.comments.map((x)=>JSON.stringify(x)).join('\n'))]].forEach(([l,fn])=>{const b=el('button',l);b.onclick=fn;e.append(b);}); p.append(e); m.append(p); return m; }
+
+function renderMain(){ return { Live: liveScreen, Prepare: prepareScreen, Comments: commentsScreen, Stability: stabilityScreen, Settings: settingsScreen, Report: reportScreen }[state.screen](); }
+function render(){ app.textContent=''; const shell=el('main',undefined,'shell'); const header=el('header',undefined,'topbar'); header.append(el('h1','SmartLive PC Standalone')); const mid=el('div',undefined,'header-chips'); ['Platform: YouTube','Stream status: Preview','00:18:42','Preset: Stable mode'].forEach((x)=>mid.append(el('span',x,'chip'))); const right=el('div',undefined,'top-actions'); right.append(languageToggle(),el('button','Open preview'),el('button','End preview','danger')); header.append(mid,right); shell.append(header); const body=el('div',undefined,'body'); body.append(sidebar(),renderMain()); shell.append(body); app.append(shell); }
 render();

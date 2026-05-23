@@ -39,9 +39,9 @@ const cases = [
     terms: [
       'SmartLive','Standalone','Connection','Encoder','Dropped frames','Live','Prepare','Comments','Stability','Settings','Report',
       'PREVIEW','Scene: Game Main','Screen capture','Camera','Microphone','Upload speed','CPU usage','GPU usage','Connected','Preview only',
-      'Setup steps','Comment integration','Selected comment','Alert summary','Stability mode recommended','Stream settings','Input settings','Display settings','Comment settings','Read-aloud settings',
-      'Summary metric cards','Highlight candidates','Trouble history','Ready for preview','Open preview','Validate setup','Stream key is not saved',
-      'Download report.json','Download logs.json','Download comments.jsonl','Settings saved locally','Stability mode ON','Validation status','Pinned','Done','Muted','Read queued'
+      'Source','Platform','Comment integration','Selected comment','Alert summary','Stability mode recommended','Stream settings','Input settings','Display settings','Comment settings','Read-aloud settings',
+      'Highlight candidates','Trouble history','Ready for preview','Open preview','Validate setup','Stream key is not saved',
+      'Download report.json','Download logs.json','Download comments.jsonl','Settings saved locally','Stability mode ON','Validation status','Selected comment','Pinned','Done','Muted','Read queued'
     ],
     blocked: []
   },
