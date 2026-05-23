@@ -1,0 +1,79 @@
+name: Release Direct Bundles
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag
+        required: true
+        default: v0.1.0-direct
+  push:
+    tags:
+      - 'v*-direct'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable
+      - run: corepack prepare pnpm@9.12.3 --activate
+      - run: pnpm install --lockfile-only
+      - run: pnpm run public-surface:check
+      - run: pnpm run release:direct
+      - run: pnpm run direct-release:check
+      - run: pnpm run ui-smoke:check
+      - run: pnpm run local-url:check
+      - run: pnpm run release:direct:zips
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Write notes
+        run: |
+          cat > /tmp/notes.md <<'MD'
+          # VL SmartLive direct distribution bundles
+
+          Direct distribution bundles for VL SmartLive.
+
+          ## Assets
+
+          - obs-bridge.zip
+          - web-console.zip
+          - pc-standalone.zip
+          - mobile.zip
+          - SHA256SUMS.txt
+
+          ## Start
+
+          Each zip includes START_HERE.md, server.mjs, and platform start scripts.
+
+          Requirement: Node.js 20+
+
+          ## Safety
+
+          Runtime credentials remain runtime-only. OBS Bridge remains read-only for OBS status in this bundle.
+          MD
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.tag.outputs.tag }}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "VL SmartLive direct distribution bundles" --notes-file /tmp/notes.md
+          gh release upload "$tag" \
+            dist/direct-release/obs-bridge.zip \
+            dist/direct-release/web-console.zip \
+            dist/direct-release/pc-standalone.zip \
+            dist/direct-release/mobile.zip \
+            dist/direct-release/SHA256SUMS.txt \
+            --clobber
