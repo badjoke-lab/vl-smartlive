@@ -15,12 +15,12 @@ function copyIfExists(source, targetRoot) {
 }
 
 function writeLauncher(target, edition) {
-  const server = `import './scripts/portable-server.mjs';\n`;
+  const server = `process.argv[2] ||= '${edition.appPath}';\nprocess.argv[3] ||= '${edition.defaultPort}';\nawait import('./scripts/portable-server.mjs');\n`;
   writeFileSync(join(target, 'server.mjs'), server, 'utf8');
 
-  const mac = `#!/bin/bash\ncd "$(dirname "$0")"\nnode scripts/portable-server.mjs ${edition.appPath} ${edition.defaultPort}\n`;
-  const linux = `#!/bin/sh\ncd "$(dirname "$0")"\nnode scripts/portable-server.mjs ${edition.appPath} ${edition.defaultPort}\n`;
-  const win = `@echo off\ncd /d %~dp0\nnode scripts\\portable-server.mjs ${edition.appPath} ${edition.defaultPort}\npause\n`;
+  const mac = `#!/bin/bash\ncd "$(dirname "$0")"\nnode server.mjs\n`;
+  const linux = `#!/bin/sh\ncd "$(dirname "$0")"\nnode server.mjs\n`;
+  const win = `@echo off\ncd /d %~dp0\nnode server.mjs\npause\n`;
 
   const macPath = join(target, 'start-macos.command');
   const linuxPath = join(target, 'start-linux.sh');

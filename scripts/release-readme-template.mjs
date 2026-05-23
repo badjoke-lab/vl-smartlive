@@ -9,15 +9,27 @@ Direct distribution package for ${edition.title}.
 
 ## Start
 
-macOS / Linux:
+macOS:
 
 \`\`\`bash
-node server.mjs
+./start-macos.command
+\`\`\`
+
+Linux:
+
+\`\`\`bash
+./start-linux.sh
 \`\`\`
 
 Windows:
 
 \`\`\`bat
+start-windows.cmd
+\`\`\`
+
+Alternative for all platforms:
+
+\`\`\`bash
 node server.mjs
 \`\`\`
 
