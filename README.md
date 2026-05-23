@@ -41,7 +41,20 @@ pnpm run test
 
 ## Distribution
 
-This repository contains the source workspace for VL SmartLive. Release bundles are prepared separately per edition.
+This repository contains the source workspace for VL SmartLive.
+
+The current source-bundle release is available at:
+
+- https://github.com/badjoke-lab/vl-smartlive/releases/tag/v0.1.0-source
+
+Included source bundles:
+
+- OBS Bridge
+- Web Console
+- PC Standalone
+- Mobile
+
+These bundles are source archives for local review and development. They are not signed installers or store builds.
 
 ## Current status
 
@@ -49,4 +62,4 @@ Core source and workspace structure are available for all four editions.
 
 ## Next step
 
-Prepare per-edition release artifacts and distribution bundles.
+Continue per-edition runtime checks and prepare edition-specific packaging notes.
