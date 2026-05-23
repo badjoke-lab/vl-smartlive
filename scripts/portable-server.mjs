@@ -10,6 +10,8 @@ const types = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.mjs': 'text/javascript; charset=utf-8',
+  '.ts': 'text/javascript; charset=utf-8',
+  '.tsx': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
@@ -19,13 +21,20 @@ const types = {
   '.md': 'text/markdown; charset=utf-8'
 };
 
+function isFile(path) {
+  return existsSync(path) && statSync(path).isFile();
+}
+
 function findFile(url) {
   const clean = String(url || '/').split('?')[0].replace(/^\/+/, '') || 'index.html';
   const first = resolve(root, clean);
   if (!first.startsWith(root)) return null;
-  if (existsSync(first) && statSync(first).isFile()) return first;
+  if (isFile(first)) return first;
+  if (!extname(first) && isFile(`${first}.js`)) return `${first}.js`;
+  if (!extname(first) && isFile(`${first}.ts`)) return `${first}.ts`;
+  if (!extname(first) && isFile(`${first}.tsx`)) return `${first}.tsx`;
   const index = join(first, 'index.html');
-  if (existsSync(index) && statSync(index).isFile()) return index;
+  if (isFile(index)) return index;
   return null;
 }
 
