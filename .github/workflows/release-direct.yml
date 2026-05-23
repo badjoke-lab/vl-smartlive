@@ -39,9 +39,9 @@ jobs:
           else
             echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
-      - name: Write release notes
+      - name: Write notes
         run: |
-          cat > /tmp/release-notes.md <<'MD'
+          cat > /tmp/notes.md <<'MD'
           # VL SmartLive direct distribution bundles
 
           Direct distribution bundles for VL SmartLive.
@@ -69,7 +69,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${{ steps.tag.outputs.tag }}"
-          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "VL SmartLive direct distribution bundles" --notes-file /tmp/release-notes.md
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "VL SmartLive direct distribution bundles" --notes-file /tmp/notes.md
           gh release upload "$tag" \
             dist/direct-release/obs-bridge.zip \
             dist/direct-release/web-console.zip \
