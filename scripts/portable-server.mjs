@@ -10,6 +10,8 @@ const types = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.mjs': 'text/javascript; charset=utf-8',
+  '.ts': 'text/javascript; charset=utf-8',
+  '.tsx': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
@@ -29,6 +31,8 @@ function findFile(url) {
   if (!first.startsWith(root)) return null;
   if (isFile(first)) return first;
   if (!extname(first) && isFile(`${first}.js`)) return `${first}.js`;
+  if (!extname(first) && isFile(`${first}.ts`)) return `${first}.ts`;
+  if (!extname(first) && isFile(`${first}.tsx`)) return `${first}.tsx`;
   const index = join(first, 'index.html');
   if (isFile(index)) return index;
   return null;
