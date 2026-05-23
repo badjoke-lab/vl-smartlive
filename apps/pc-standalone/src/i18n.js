@@ -12,7 +12,7 @@ const dictionaries = {
     localPrivacy: 'Local-only mode. No cloud upload.', question: 'question', warning: 'warning', praise: 'praise', issue: 'issue/general',
     questions: 'questions', warnings: 'warnings', issues: 'issues', viewerCount: 'Viewers: 124',
     readAloud: 'Read aloud', pin: 'Pin', edit: 'Edit', switchScene: 'Switch', streamSetupSteps: 'Stream setup steps',
-    openPreview: 'Ready for preview', switchToStabilityMode: 'Switch to stability mode', reassessLater: 'Reassess later', openDetailedSettings: 'Open detailed settings'
+    openPreview: 'Open preview', validateSetup: 'Validate setup', switchToStabilityMode: 'Switch to stability mode', reassessLater: 'Reassess later', openDetailedSettings: 'Open detailed settings'
   },
   ja: {
     live: 'ライブ', prepare: '準備', comments: 'コメント', stability: '安定性', settings: '設定', report: 'レポート',
@@ -24,7 +24,7 @@ const dictionaries = {
     localPrivacy: 'ローカル専用モード。クラウド送信なし。', question: '質問', warning: '警告', praise: '称賛', issue: '問題/一般',
     questions: '質問', warnings: '警告', issues: '問題', viewerCount: '視聴者: 124',
     readAloud: '読み上げ', pin: 'ピン', edit: '編集', switchScene: '切替', streamSetupSteps: '配信準備ステップ',
-    openPreview: 'プレビュー準備完了', switchToStabilityMode: '安定モードへ切替', reassessLater: '後で再評価', openDetailedSettings: '詳細設定を開く'
+    openPreview: 'プレビューを開く', validateSetup: 'セットアップを検証', switchToStabilityMode: '安定モードへ切替', reassessLater: '後で再評価', openDetailedSettings: '詳細設定を開く'
   }
 };
 function detectInitialLanguage() { const saved = localStorage.getItem(STORAGE_KEY); if (SUPPORTED.includes(saved)) return saved; return 'en'; }
