@@ -4,20 +4,21 @@ if (!app) throw new Error('PC Standalone app root not found.');
 const saved = JSON.parse(localStorage.getItem('pcStandaloneSettings') || '{}');
 const state = {
   mode: 'Radar',
-  streamState: 'error',
-  lastError: 'Local sidecar unreachable. Run pnpm run dev:pc-standalone.',
+  streamState: 'preview',
+  lastError: 'Local sidecar is not connected. Browser bundle remains in preview mode.',
   localSettings: { rtmpUrl: saved.rtmpUrl || '' },
+  runtimeSecretPresent: false,
   mediaStream: null,
   micStream: null,
   micEnabled: false,
   sourceType: 'none',
-  startTime: 0,
+  startTime: Date.now(),
   comments: [
-    { time: '12:28:31', author: 'takebon', radar: 'warning', message: 'Audio may be a little quiet.' },
-    { time: '12:28:40', author: 'yuuki', radar: 'question', message: 'Can this be used from a phone too?' },
-    { time: '12:28:55', author: 'sakura', radar: 'praise', message: 'Looks good. Looking forward to the stream.' },
-    { time: '12:29:10', author: 'gamer_cat', radar: 'question', message: 'What settings are being used?' },
-    { time: '12:29:35', author: 'rin', radar: 'praise', message: 'Nice play!' }
+    { time: '12:28:31', author: 'takebon', radar: 'warning', message: 'Audio may be a little quiet.', handled: false, pinned: false },
+    { time: '12:28:40', author: 'yuuki', radar: 'question', message: 'Can this be used from a phone too?', handled: false, pinned: false },
+    { time: '12:28:55', author: 'sakura', radar: 'praise', message: 'Looks good. Looking forward to the stream.', handled: false, pinned: false },
+    { time: '12:29:10', author: 'gamer_cat', radar: 'question', message: 'What settings are being used?', handled: false, pinned: false },
+    { time: '12:29:35', author: 'rin', radar: 'praise', message: 'Nice play!', handled: false, pinned: false }
   ],
   logs: []
 };
@@ -40,7 +41,63 @@ const validRtmp = (value) => {
 
 const addLog = (message) => {
   state.logs.unshift(`${new Date().toLocaleTimeString()} ${message}`);
-  state.logs = state.logs.slice(0, 8);
+  state.logs = state.logs.slice(0, 24);
+};
+
+const safeDownload = (filename, text) => {
+  const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+
+const buildReport = () => {
+  const elapsedSec = Math.max(0, Math.round((Date.now() - state.startTime) / 1000));
+  return {
+    appEdition: 'pc-standalone',
+    generatedAt: new Date().toISOString(),
+    mode: state.mode,
+    streamState: state.streamState,
+    sourceType: state.sourceType,
+    micEnabled: state.micEnabled,
+    rtmpTargetValid: validRtmp(state.localSettings.rtmpUrl),
+    runtimeSecretEntered: state.runtimeSecretPresent,
+    runtimeSecretSaved: false,
+    durationSec: elapsedSec,
+    commentSummary: {
+      total: state.comments.length,
+      questions: state.comments.filter((comment) => comment.radar === 'question').length,
+      warnings: state.comments.filter((comment) => comment.radar === 'warning').length,
+      praise: state.comments.filter((comment) => comment.radar === 'praise').length,
+      handled: state.comments.filter((comment) => comment.handled).length,
+      pinned: state.comments.filter((comment) => comment.pinned).length
+    },
+    logs: state.logs
+  };
+};
+
+const buildCommentsJsonl = () => state.comments.map((comment, index) => JSON.stringify({
+  schemaVersion: 'smartlive.log.v0.1',
+  appEdition: 'pc-standalone',
+  line: index + 1,
+  timestamp: comment.time,
+  displayName: comment.author,
+  text: comment.message,
+  labels: [comment.radar],
+  handled: comment.handled,
+  pinned: comment.pinned
+})).join('\n') + '\n';
+
+const validateTarget = () => {
+  const ok = validRtmp(state.localSettings.rtmpUrl);
+  addLog(ok ? 'RTMP/RTMPS target validated locally.' : 'RTMP/RTMPS target validation failed.');
+  state.streamState = ok ? 'ready' : 'preview';
+  render();
 };
 
 async function requestCamera() {
@@ -77,20 +134,42 @@ async function requestMic() {
   render();
 }
 
+function addComment(author, message, radar) {
+  if (!message.trim()) {
+    addLog('Comment add skipped: empty message.');
+    render();
+    return;
+  }
+  state.comments.unshift({
+    time: new Date().toLocaleTimeString(),
+    author: author.trim() || 'guest',
+    radar,
+    message: message.trim(),
+    handled: false,
+    pinned: false
+  });
+  addLog(`Comment added as ${radar}.`);
+  render();
+}
+
 function renderComments() {
   const list = el('div', undefined, 'comment-list');
   const comments = state.mode === 'Raw' ? state.comments : [...state.comments].sort((a, b) => {
-    const order = { warning: 0, question: 1, praise: 2 };
+    const order = { warning: 0, question: 1, praise: 2, general: 3 };
     return order[a.radar] - order[b.radar];
   });
   comments.forEach((comment) => {
     const item = el('article', undefined, `comment-item ${comment.radar}`);
     item.append(el('span', comment.time, 'comment-time'));
-    item.append(el('strong', `${comment.author} · ${comment.radar}`, 'comment-author'));
+    item.append(el('strong', `${comment.author} · ${comment.radar}${comment.pinned ? ' · pinned' : ''}${comment.handled ? ' · done' : ''}`, 'comment-author'));
     item.append(el('p', comment.message));
-    item.append(el('button', 'Read'));
-    item.append(el('button', 'Pin'));
-    item.append(el('button', 'Done'));
+    const read = el('button', 'Read');
+    read.onclick = () => { addLog(`Read queue: ${comment.author}`); render(); };
+    const pin = el('button', comment.pinned ? 'Unpin' : 'Pin');
+    pin.onclick = () => { comment.pinned = !comment.pinned; addLog(comment.pinned ? 'Comment pinned.' : 'Comment unpinned.'); render(); };
+    const done = el('button', comment.handled ? 'Undo' : 'Done');
+    done.onclick = () => { comment.handled = !comment.handled; addLog(comment.handled ? 'Comment marked done.' : 'Comment reopened.'); render(); };
+    item.append(read, pin, done);
     list.append(item);
   });
   return list;
@@ -103,8 +182,9 @@ function render() {
   const header = el('header', undefined, 'pc-topbar');
   header.append(el('h1', 'SmartLive Encoder – Standalone'));
   const pills = el('div', undefined, 'top-pills');
-  ['YouTube', state.streamState === 'live' ? 'Streaming' : 'Preview', '00:18:42', 'Stable mode'].forEach((label) => pills.append(el('span', label)));
-  const stop = el('button', 'Stop streaming', 'danger-button');
+  ['YouTube', state.streamState === 'ready' ? 'Ready' : 'Preview', '00:18:42', 'Stable mode'].forEach((label) => pills.append(el('span', label)));
+  const stop = el('button', 'Stop preview', 'danger-button');
+  stop.onclick = () => { state.streamState = 'preview'; addLog('Preview stopped locally.'); render(); };
   pills.append(stop);
   header.append(pills);
   shell.append(header);
@@ -135,13 +215,27 @@ function render() {
   const tabs = el('div', undefined, 'tab-row');
   ['Raw', 'Radar'].forEach((mode) => {
     const button = el('button', mode, state.mode === mode ? 'active' : '');
-    button.onclick = () => { state.mode = mode; render(); };
+    button.onclick = () => { state.mode = mode; addLog(`Comment mode changed to ${mode}.`); render(); };
     tabs.append(button);
   });
   commentHead.append(tabs);
   comments.append(commentHead, renderComments());
-  const input = el('div', 'Comment input is disabled in local preview mode.', 'comment-input');
-  comments.append(input);
+  const form = el('div', undefined, 'comment-input');
+  const author = document.createElement('input');
+  author.placeholder = 'author';
+  const message = document.createElement('input');
+  message.placeholder = 'comment message';
+  const radar = document.createElement('select');
+  ['question', 'warning', 'praise', 'general'].forEach((value) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    radar.append(option);
+  });
+  const submit = el('button', 'Add comment');
+  submit.onclick = () => addComment(author.value, message.value, radar.value);
+  form.append(author, message, radar, submit);
+  comments.append(form);
   grid.append(comments);
 
   const setup = el('section', undefined, 'panel setup-panel');
@@ -155,9 +249,12 @@ function render() {
   };
   const keyInput = document.createElement('input');
   keyInput.type = 'password';
-  keyInput.placeholder = 'stream key/password (runtime-only)';
-  const valid = el('p', `Target valid: ${validRtmp(state.localSettings.rtmpUrl) ? 'yes' : 'no'}`, 'status-line');
-  setup.append(urlInput, keyInput, valid);
+  keyInput.placeholder = 'runtime stream key (not saved)';
+  keyInput.oninput = (event) => { state.runtimeSecretPresent = Boolean(event.target.value); };
+  const validateButton = el('button', 'Validate target locally');
+  validateButton.onclick = validateTarget;
+  const valid = el('p', `Target valid: ${validRtmp(state.localSettings.rtmpUrl) ? 'yes' : 'no'} · runtime key saved: no`, 'status-line');
+  setup.append(urlInput, keyInput, validateButton, valid);
   grid.append(setup);
 
   const status = el('section', undefined, 'panel status-panel');
@@ -166,6 +263,8 @@ function render() {
     ['sidecar reachable', 'no'],
     ['source selected', state.sourceType === 'none' ? 'no' : state.sourceType],
     ['microphone', state.micEnabled ? 'enabled' : 'optional'],
+    ['target valid', validRtmp(state.localSettings.rtmpUrl) ? 'yes' : 'no'],
+    ['runtime key saved', 'no'],
     ['final state', state.streamState]
   ].forEach(([label, value]) => {
     const row = el('p');
@@ -194,13 +293,30 @@ function render() {
 
   const log = el('section', undefined, 'panel log-panel');
   log.append(el('h2', 'Runtime log'));
+  const exportLogs = el('button', 'Download logs.json');
+  exportLogs.onclick = () => safeDownload('pc-standalone-logs.json', JSON.stringify({ appEdition: 'pc-standalone', generatedAt: new Date().toISOString(), logs: state.logs }, null, 2));
+  log.append(exportLogs);
   if (state.logs.length === 0) log.append(el('p', state.lastError));
   state.logs.forEach((line) => log.append(el('p', line)));
   grid.append(log);
 
   const report = el('section', undefined, 'panel report-panel');
   report.append(el('h2', 'Report preview'));
-  ['startedAt: n/a', 'stoppedAt: n/a', 'duration: 0s', `source type: ${state.sourceType}`, `mic enabled: ${state.micEnabled ? 'yes' : 'no'}`, `summary: ${state.streamState}`].forEach((line) => report.append(el('p', line)));
+  const reportData = buildReport();
+  const exportReport = el('button', 'Download report.json');
+  exportReport.onclick = () => safeDownload('pc-standalone-report.json', JSON.stringify(buildReport(), null, 2));
+  const exportComments = el('button', 'Download comments.jsonl');
+  exportComments.onclick = () => safeDownload('pc-standalone-comments.jsonl', buildCommentsJsonl());
+  report.append(exportReport, exportComments);
+  [
+    `generatedAt: ${reportData.generatedAt}`,
+    `source type: ${reportData.sourceType}`,
+    `mic enabled: ${reportData.micEnabled ? 'yes' : 'no'}`,
+    `target valid: ${reportData.rtmpTargetValid ? 'yes' : 'no'}`,
+    `runtime key saved: no`,
+    `comments: ${reportData.commentSummary.total}`,
+    `summary: ${reportData.streamState}`
+  ].forEach((line) => report.append(el('p', line)));
   grid.append(report);
 
   shell.append(grid);
