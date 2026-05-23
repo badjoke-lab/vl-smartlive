@@ -1,0 +1,21 @@
+{
+  "sessionId": "sl_session_20260521_120000_00ab12",
+  "appId": "smartlive.obs-bridge",
+  "appVersion": "0.1.0",
+  "mode": "local-preview",
+  "platform": "desktop",
+  "status": "active",
+  "startedAt": "2026-05-21T12:00:00.000Z",
+  "obsClientMode": "mock",
+  "logSchemaVersion": "smartlive.log.v0.1",
+  "plannedFiles": {
+    "session": "logs/sessions/sl_session_20260521_120000_00ab12/session.json",
+    "comments": "logs/sessions/sl_session_20260521_120000_00ab12/comments.jsonl",
+    "alerts": "logs/sessions/sl_session_20260521_120000_00ab12/alerts.jsonl",
+    "streamState": "logs/sessions/sl_session_20260521_120000_00ab12/stream-state.jsonl",
+    "reportJson": "logs/sessions/sl_session_20260521_120000_00ab12/report.json",
+    "reportMarkdown": "logs/sessions/sl_session_20260521_120000_00ab12/report.md"
+  },
+  "createdAt": "2026-05-21T12:00:00.000Z",
+  "updatedAt": "2026-05-21T12:00:00.000Z"
+}

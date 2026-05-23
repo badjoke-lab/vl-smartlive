@@ -1,0 +1,7 @@
+{
+  "appEdition": "obs-bridge",
+  "source": "obs-bridge",
+  "sessionId": "obs-bridge-sess-001",
+  "rtmpEndpoint": "rtmps://example.invalid/live/<redacted>",
+  "startedAt": "2026-05-21T10:00:00Z"
+}

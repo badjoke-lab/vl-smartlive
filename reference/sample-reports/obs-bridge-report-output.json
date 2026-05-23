@@ -1,0 +1,32 @@
+{
+  "sessionId": "sl_session_20260520_120000_abc123",
+  "generatedAt": "2026-05-20T12:45:00.000Z",
+  "appId": "smartlive.obs-bridge",
+  "appVersion": "0.1.0",
+  "source": "obs-bridge",
+  "summary": {
+    "comments": 12,
+    "alerts": 2,
+    "streamStateEntries": 1
+  },
+  "commentsSummary": {
+    "total": 12,
+    "sampleCommentIds": ["comment_001", "comment_002", "comment_003"]
+  },
+  "alertsSummary": {
+    "total": 2,
+    "levels": {
+      "warning": 1,
+      "info": 1
+    }
+  },
+  "streamStateSummary": {
+    "total": 1,
+    "latestFlowState": "mock_ready"
+  },
+  "limitations": [
+    "Persistence preview only: no filesystem writes are executed in this phase.",
+    "OBS adapter remains mock-first with native read-only diagnostics."
+  ],
+  "localFirst": true
+}

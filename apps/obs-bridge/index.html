@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SmartLive OBS Bridge</title>
+    <meta
+      name="description"
+      content="SmartLive OBS Bridge shell with always-visible comments, Raw/Radar modes, held queue, local logs, and report preview."
+    />
+    <link rel="stylesheet" href="./src/renderer/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-status-bar">
+        <div>
+          <p class="eyebrow">VL SmartLive</p>
+          <h1>SmartLive OBS Bridge</h1>
+        </div>
+        <div class="status-row">
+          <span id="obsConnectionPill" class="pill ok">● OBS Mock Connected</span>
+          <span id="obsStreamPill" class="pill live">● LIVE</span>
+          <span class="pill">01:23:45</span>
+          <span id="obsScenePill" class="pill">Scene: Main</span>
+        </div>
+        <nav class="tabs" aria-label="OBS Bridge screens">
+          <button class="nav-tab active" data-screen="live" type="button">Live</button>
+          <button class="nav-tab" data-screen="logs" type="button">Logs</button>
+          <button class="nav-tab" data-screen="settings" type="button">Settings</button>
+        </nav>
+      </header>
+
+      <main>
+        <section id="liveScreen" class="screen active">
+          <div class="live-grid">
+            <aside class="panel left-panel">
+              <section>
+                <h2>OBS Status</h2>
+                <div class="metric"><span>Connection</span><strong id="obsConnectionValue">OK</strong></div>
+                <div class="metric"><span>Stream</span><strong id="obsStreamValue">LIVE</strong></div>
+                <div class="metric"><span>Recording</span><strong id="obsRecordingValue">OFF</strong></div>
+                <div class="metric"><span>Scene</span><strong id="obsSceneValue">Main</strong></div>
+              </section>
+
+              <section>
+                <h2>Metrics</h2>
+                <div class="metric"><span>Bitrate</span><strong id="obsBitrateValue">4500 kbps</strong></div>
+                <div class="metric"><span>CPU</span><strong id="obsCpuValue">18%</strong></div>
+                <div class="metric"><span>Drop</span><strong id="obsDropValue">12</strong></div>
+                <div class="metric"><span>FPS</span><strong id="obsFpsValue">30</strong></div>
+              </section>
+
+              <section>
+                <h2>OBS Actions</h2>
+                <div class="actions vertical">
+                  <button id="obsConnectButton" type="button">Connect mock OBS</button>
+                  <button id="obsDisconnectButton" type="button">Disconnect</button>
+                  <button id="obsRefreshButton" type="button">Refresh metrics</button>
+                </div>
+              </section>
+
+
+              
+              <section>
+                <h2>Readonly Connection</h2>
+                <label>Mode<select id="obsReadonlyModeInput"><option value="mock">Mock OBS</option><option value="real-readonly">Real OBS readonly</option></select></label>
+                <label>Host<input id="obsHostInput" value="127.0.0.1" /></label>
+                <label>Port<input id="obsPortInput" type="number" value="4455" /></label>
+                <label>Password<input id="obsPasswordInput" type="password" value="" autocomplete="off" /></label>
+                <div class="actions vertical">
+                  <button id="obsConnectReadonlyButton" type="button">Connect</button>
+                  <button id="obsDisconnectReadonlyButton" type="button">Disconnect</button>
+                  <button id="obsRetryReadonlyButton" type="button">Retry</button>
+                </div>
+                <div class="metric"><span>Status</span><strong id="obsReadonlyStatusValue">disconnected</strong></div>
+                <pre id="obsRuntimeLogPanel" class="report-preview compact">No runtime logs yet.</pre>
+                <p id="obsSafetyNotice" class="note">Safety notice: read-only only, no stream/scene/recording control, password runtime-only and never saved.</p>
+              </section>
+<section>
+                <h2>OBS Diagnostics</h2>
+                <div class="metric"><span>Selected mode</span><strong id="obsDiagModeValue">mock</strong></div>
+                <div class="metric"><span>Runtime support</span><strong id="obsDiagRuntimeValue">--</strong></div>
+                <div class="metric"><span>Connection state</span><strong id="obsDiagStateValue">mock_ready</strong></div>
+                <div class="metric"><span>Last connection attempt</span><strong id="obsDiagAttemptValue">never</strong></div>
+                <div class="metric"><span>Last error code</span><strong id="obsDiagErrorCodeValue">none</strong></div>
+                <div class="metric"><span>Last error message</span><strong id="obsDiagErrorMessageValue">none</strong></div>
+                <p class="note">Safety: read-only only.</p>
+                <p class="note">Safety: no stream start/stop.</p>
+                <p class="note">Safety: no scene switching.</p>
+                <p class="note">Safety: no recording control.</p>
+              </section>
+
+              <section>
+                <h2>Alerts</h2>
+                <div id="alertList"></div>
+              </section>
+            </aside>
+
+            <section class="panel main-panel">
+              <p class="eyebrow">Stream monitor</p>
+              <h2>OBS is handling video output.</h2>
+              <p>
+                SmartLive is monitoring comments, alerts, local logs, and post-stream reports.
+              </p>
+
+              <div class="summary-grid">
+                <div><span>Comments</span><strong id="summaryComments">0</strong></div>
+                <div><span>Questions</span><strong id="summaryQuestions">0</strong></div>
+                <div><span>Audio</span><strong id="summaryAudio">0</strong></div>
+                <div><span>Video</span><strong id="summaryVideo">0</strong></div>
+                <div><span>Held</span><strong id="summaryHeld">0</strong></div>
+                <div><span>Alerts</span><strong id="summaryAlerts">0</strong></div>
+              </div>
+
+              <section>
+                <h2>Session</h2>
+                <div class="metric"><span>Session ID</span><strong id="sessionIdValue">--</strong></div>
+                <div class="metric"><span>Status</span><strong id="sessionStatusValue">idle</strong></div>
+                <div class="metric"><span>Started at</span><strong id="sessionStartedAtValue">--</strong></div>
+                <div class="metric"><span>Ended at</span><strong id="sessionEndedAtValue">--</strong></div>
+                <div class="metric"><span>Planned log directory</span><strong id="sessionLogPathValue">logs/sessions/&lt;sessionId&gt;</strong></div>
+                <div class="actions vertical">
+                  <button id="startSessionButton" type="button">Start session</button>
+                  <button id="endSessionButton" type="button">End session</button>
+                </div>
+              </section>
+
+              <div class="actions">
+                <button id="generateReportButton" type="button">Generate report</button>
+                <button type="button">Open logs</button>
+                <button id="copySummaryButton" type="button">Copy summary</button>
+              </div>
+
+              <pre id="liveSummary" class="report-preview compact"></pre>
+
+              <p class="note">
+                OBS WebSocket mock connection state is available. Real obs-websocket-js wiring is handled separately.
+              </p>
+            </section>
+
+            <aside class="panel comment-panel" aria-label="Always visible comments">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Always visible</p>
+                  <h2>Comments</h2>
+                </div>
+                <div class="mode-tabs" role="tablist" aria-label="Comment mode">
+                  <button class="mode-tab active" data-mode="raw" type="button">Raw</button>
+                  <button class="mode-tab" data-mode="radar" type="button">Radar</button>
+                </div>
+              </div>
+
+              <div class="comment-tools">
+                <input id="commentSearch" type="search" placeholder="Search comments" aria-label="Search comments" />
+                <select id="commentFilter" aria-label="Comment filter">
+                  <option value="all">All</option>
+                  <option value="urgent">Urgent</option>
+                  <option value="question">Questions</option>
+                  <option value="audio_issue">Audio</option>
+                  <option value="video_issue">Video</option>
+                  <option value="highlight">Highlights</option>
+                  <option value="held">Held</option>
+                  <option value="handled">Handled</option>
+                </select>
+              </div>
+
+              <div id="radarTabs" class="radar-tabs" aria-label="Radar categories"></div>
+              <div id="commentList" class="comment-list" aria-live="polite"></div>
+
+              
+              <section class="comment-input-panel">
+                <h3>Comment input/import</h3>
+                <label>Author / display name<input id="commentAuthorInput" type="text" /></label>
+                <label>Message<textarea id="commentMessageInput"></textarea></label>
+                <label>Label/category
+                  <select id="commentLabelInput"><option value="general">general</option><option value="question">question</option><option value="audio_issue">audio_issue</option><option value="video_issue">video_issue</option><option value="danger">danger</option><option value="highlight">highlight</option></select>
+                </label>
+                <div class="actions"><button id="addCommentButton" type="button">Add comment</button></div>
+                <label>Paste comments.jsonl<textarea id="commentJsonlTextarea"></textarea></label>
+                <label>Import mode<select id="commentImportMode"><option value="append">Append</option><option value="replace">Replace</option></select></label>
+                <div class="actions"><button id="importCommentJsonlButton" type="button">Import JSONL</button></div>
+                <label>comments.jsonl file<input id="commentJsonlFileInput" type="file" accept=".jsonl,.txt,application/json" /></label>
+                <div id="commentImportErrors" class="note">No import errors.</div>
+              </section>
+              <section class="output-panel">
+                <h3>SmartLive outputs</h3>
+                <div class="actions vertical">
+                  <button id="generateOutputsButton" type="button">Generate outputs</button>
+                  <button id="downloadSessionJsonButton" type="button">Download session.json</button>
+                  <button id="downloadCommentsJsonlButton" type="button">Download comments.jsonl</button>
+                  <button id="downloadAlertsJsonlButton" type="button">Download alerts.jsonl</button>
+                  <button id="downloadStreamStateJsonlButton" type="button">Download stream-state.jsonl</button>
+                  <button id="downloadReportMdButton" type="button">Download report.md</button>
+                  <button id="downloadReportJsonButton" type="button">Download report.json</button>
+                </div>
+                <pre id="outputPreviewPanel" class="report-preview compact">No outputs generated yet.</pre>
+              </section>
+<section class="queue-panel">
+                <h3>Held / Queue</h3>
+                <div class="queue-row"><span>Held</span><strong id="heldCount">0</strong></div>
+                <div class="queue-row"><span>Queue</span><strong id="queueCount">0</strong></div>
+                <div id="nextQueueItem" class="queue-next">No queued comment.</div>
+                <button id="readNextButton" type="button">Read next</button>
+              </section>
+            </aside>
+          </div>
+
+          <footer class="bottom-status-bar">
+            <span>Log: saving</span>
+            <span id="obsUpdatedAtValue">Last update: --</span>
+            <span>schema smartlive.log.v0.1</span>
+          </footer>
+        </section>
+
+        <section id="logsScreen" class="screen">
+          <div class="logs-layout">
+            <section class="panel logs-list-panel">
+              <h2>Logs List</h2>
+              <pre id="logsListSummary" class="report-preview compact">sessions=0 | saved=0 | active=0 | comments=0 | alerts=0 | reports=0</pre>
+              <div class="actions logs-list-controls">
+                <select id="logsListFilter" aria-label="Logs list filter">
+                  <option value="all">all</option>
+                  <option value="active">active</option>
+                  <option value="saved">saved</option>
+                  <option value="needs_report">needs_report</option>
+                  <option value="error">error</option>
+                </select>
+                <button id="logsListRefreshButton" type="button">Refresh logs list</button>
+              </div>
+              <div id="logsListItems" class="logs-list-items" aria-live="polite"></div>
+              <h4>Selected log details</h4>
+              <pre id="logsListSelectedDetails" class="report-preview">No selected log session.</pre>
+            </section>
+
+            <section class="panel logs-overview">
+              <h2>Logs / Reports</h2>
+              <section class="error-display-panel" aria-live="polite">
+                <h3>Error / Status Summary</h3>
+                <p class="note">Blocking issues prevent saving or report preparation. Warnings may be non-blocking. Mock mode is safe/default. Unsupported runtime can be expected in static/browser preview.</p>
+                <div class="queue-row"><span>Blocking issues</span><strong id="errorDisplayBlockingCount">0</strong></div>
+                <div class="queue-row"><span>Warnings</span><strong id="errorDisplayWarningCount">0</strong></div>
+                <pre id="errorDisplaySummary" class="report-preview compact">Blocking=0 | Warning=0 | Total=0</pre>
+                <button id="errorDisplayRefreshButton" type="button">Refresh error summary</button>
+                <div id="errorDisplayList" class="error-display-list">No current warnings or blocking issues.</div>
+              </section>
+              <div class="session-row">
+                <span>2026-05-20 12:00</span>
+                <span>obs-bridge</span>
+                <span>Duration 01:19:00</span>
+                <span>Comments <strong id="logsCommentCount">0</strong></span>
+                <button type="button">Open</button>
+              </div>
+              <pre id="logsReportPreview" class="report-preview">No logs loaded.</pre>
+            </section>
+
+            <section class="panel logs-group logs-group-session">
+              <h3>Session preview</h3>
+              <div class="queue-row"><span>Target path</span><strong id="sessionJsonTargetPath">--</strong></div>
+              <div class="queue-row"><span>Status</span><strong id="sessionJsonPlanStatus">idle</strong></div>
+              <p id="sessionJsonPlanMessage" class="note">Click "Prepare session.json plan" to preview a JSON write plan.</p>
+              <pre id="sessionJsonPreview" class="report-preview">No session.json plan prepared.</pre>
+              <button id="prepareSessionJsonPlanButton" type="button">Prepare session.json plan</button>
+            </section>
+
+            <section class="panel logs-group logs-group-jsonl">
+              <h3>JSONL previews</h3>
+              <article class="subpanel">
+                <h4>comments.jsonl preview</h4>
+                <div class="queue-row"><span>Target path</span><strong id="commentsJsonlTargetPath">--</strong></div>
+                <div class="queue-row"><span>Planned count</span><strong id="commentsJsonlPlannedCount">0</strong></div>
+                <p id="commentsJsonlPlanMessage" class="note">Click "Prepare comments JSONL plan" to preview an append plan.</p>
+                <pre id="commentsJsonlPreview" class="report-preview">No comments JSONL plan prepared.</pre>
+                <button id="prepareCommentsJsonlPlanButton" type="button">Prepare comments JSONL plan</button>
+              </article>
+              <article class="subpanel">
+                <h4>alerts.jsonl preview</h4>
+                <div class="queue-row"><span>Target path</span><strong id="alertsJsonlTargetPath">--</strong></div>
+                <div class="queue-row"><span>Planned count</span><strong id="alertsJsonlPlannedCount">0</strong></div>
+                <p id="alertsJsonlPlanMessage" class="note">Click "Prepare alerts JSONL plan" to preview an append plan.</p>
+                <pre id="alertsJsonlPreview" class="report-preview">No alerts JSONL plan prepared.</pre>
+                <button id="prepareAlertsJsonlPlanButton" type="button">Prepare alerts JSONL plan</button>
+              </article>
+              <article class="subpanel">
+                <h4>stream-state.jsonl preview</h4>
+                <div class="queue-row"><span>Target path</span><strong id="streamStateJsonlTargetPath">--</strong></div>
+                <div class="queue-row"><span>Planned count</span><strong id="streamStateJsonlPlannedCount">0</strong></div>
+                <p id="streamStateJsonlPlanMessage" class="note">Click "Prepare stream-state JSONL plan" to preview an append plan.</p>
+                <pre id="streamStateJsonlPreview" class="report-preview">No stream-state JSONL plan prepared.</pre>
+                <button id="prepareStreamStateJsonlPlanButton" type="button">Prepare stream-state JSONL plan</button>
+              </article>
+            </section>
+
+            <section class="panel logs-group logs-group-report">
+              <h3>Report preview</h3>
+              <div class="queue-row"><span>report.json target path</span><strong id="reportJsonTargetPath">--</strong></div>
+              <div class="queue-row"><span>report.md target path</span><strong id="reportMarkdownTargetPath">--</strong></div>
+              <div class="queue-row"><span>report status</span><strong id="reportPlanStatus">idle</strong></div>
+              <p id="reportPlanMessage" class="note">Click "Prepare report output plan" to preview report.json/report.md output previews.</p>
+              
+              <article class="subpanel report-generation-card">
+                <h4>Report generation readiness</h4>
+                <pre id="reportGenerationStatus" class="report-preview report-generation-status">needs_session: Start session first.</pre>
+                <h5>Next step</h5>
+                <pre id="reportGenerationNextStep" class="report-preview">Start session first</pre>
+                <h5>Included sections</h5>
+                <pre id="reportGenerationIncludedSections" class="report-preview">session
+comments
+alerts
+stream-state
+report.json
+report.md</pre>
+                <h5>Missing inputs</h5>
+                <pre id="reportGenerationMissingInputs" class="report-preview">session</pre>
+                <h5>Readiness summary</h5>
+                <pre id="reportGenerationReadinessSummary" class="report-preview">Report generation requires session metadata before preview/output planning.</pre>
+                <button id="prepareReportGenerationButton" type="button">Prepare report generation</button>
+              </article>
+
+              <h4>report JSON preview</h4>
+              <pre id="reportJsonPreview" class="report-preview">No report JSON preview prepared.</pre>
+              <h4>report Markdown preview</h4>
+              <pre id="reportMarkdownPreview" class="report-preview">No report Markdown preview prepared.</pre>
+              <button id="prepareReportPreviewButton" type="button">Prepare report output plan</button>
+            </section>
+
+            <section class="panel logs-group logs-group-write-boundary">
+              <h3>Local write boundary design</h3>
+              <div class="queue-row"><span>status</span><strong id="localWriteBoundaryStatus">blocked</strong></div>
+              <div class="queue-row"><span>planned operations</span><strong id="localWriteOperationCount">0</strong></div>
+              <p id="localWriteBoundaryMessage" class="note">Click "Prepare local write boundary plan" to combine persistence previews.</p>
+              <h4>planned files</h4>
+              <pre id="localWritePlannedFiles" class="report-preview">--</pre>
+              <h4>validation errors</h4>
+              <pre id="localWriteValidationErrors" class="report-preview">none</pre>
+              <h4>local write queue preview</h4>
+              <pre id="localWriteQueuePreview" class="report-preview">--</pre>
+              <button id="prepareLocalWriteBoundaryPlanButton" type="button">Prepare local write boundary plan</button>
+            </section>
+
+            <section class="panel logs-group logs-group-persistence">
+              <h3>Local persistence execution</h3>
+              <p class="note">Start session first, then prepare all plans, then prepare boundary, then save if runtime is supported.</p>
+              <div class="queue-row"><span>status</span><strong id="localPersistenceStatus">idle</strong></div>
+              <div class="queue-row"><span>runtime support</span><strong id="localPersistenceRuntimeSupport">unsupported_runtime</strong></div>
+              <div class="queue-row"><span>files written</span><strong id="localPersistenceFilesWritten">0</strong></div>
+              <p id="localPersistenceMessage" class="note">Local file writing requires a supported desktop runtime.</p>
+              <h4>Local save UX status</h4>
+              <pre id="localSaveUxStatus" class="report-preview">needs_session: Start session first.</pre>
+              <h4>Next step</h4>
+              <pre id="localSaveUxNextStep" class="report-preview">Start session first</pre>
+              <h4>Blocking reasons</h4>
+              <pre id="localSaveUxBlockingReasons" class="report-preview">No active session.</pre>
+              <h4>Planned files</h4>
+              <pre id="localSaveUxPlannedFiles" class="report-preview">session.json
+comments.jsonl
+alerts.jsonl
+stream-state.jsonl
+report.json / report.md</pre>
+              <h4>Result summary</h4>
+              <pre id="localSaveUxResultSummary" class="report-preview">No local persistence execution has run.</pre>
+              <h4>execution result preview</h4>
+              <pre id="localPersistenceResultPreview" class="report-preview">No local persistence execution has run.</pre>
+              <div class="actions vertical">
+                <button id="exportOutputsButton" type="button">Export output files (browser)</button>
+              </div>
+              <button id="saveLocalLogsButton" type="button">Save local logs if supported</button>
+            </section>
+          </div>
+        </section>
+
+        <section id="settingsScreen" class="screen">
+          <div class="settings-grid">
+            <section class="panel">
+              <h2>OBS Connection</h2>
+              <label>Host <input id="obsHostInput" value="127.0.0.1" /></label>
+              <label>Port <input id="obsPortInput" value="4455" /></label>
+              <label>Password <input id="obsPasswordInput" value="" type="password" /></label>
+              <label>Client mode
+                <select id="obsClientModeInput">
+                  <option value="mock" selected>Mock OBS</option>
+                  <option value="native-readonly">Native read-only OBS</option>
+                </select>
+              </label>
+              <p id="obsClientModeNote" class="note">Mode: Mock OBS (default).</p>
+              <button id="obsTestConnectionButton" type="button">Test connection</button>
+            </section>
+
+            <section class="panel">
+              <h2>Comments</h2>
+              <label><input id="radarEnabled" checked type="checkbox" /> Radar classification ON</label>
+              <label><input id="mockCommentsEnabled" checked type="checkbox" /> Mock comments ON</label>
+              <label><input id="readAloudEnabled" type="checkbox" /> Read aloud OFF</label>
+              <label>Long message limit <input id="longMessageLimit" value="120" /></label>
+            </section>
+
+            <section class="panel">
+              <h2>Logs</h2>
+              <label><input checked type="checkbox" /> Save logs locally</label>
+              <p id="settingsPersistenceStatus" class="settings-persistence-status">not_saved</p>
+              <p id="settingsPersistenceSummary" class="note">Only safe UI settings are stored locally.</p>
+              <div class="settings-actions-row">
+                <button id="saveSettingsButton" type="button">Save settings</button>
+                <button id="resetSettingsButton" type="button">Reset settings</button>
+              </div>
+              <p id="settingsExcludedKeysNote" class="note warning">OBS password is never saved.</p>
+              <p class="note">Only safe UI settings are stored locally.</p>
+              <p class="note">No cloud sync.</p>
+              <p class="note">
+                コメントログには個人情報が含まれる可能性があります。共有前に内容を確認してください。
+              </p>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./src/renderer/main.js"></script>
+  </body>
+</html>

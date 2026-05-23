@@ -1,0 +1,18 @@
+[
+  {
+    "sessionId": "sl_session_20260520_120000_refa01",
+    "startedAt": "2026-05-20T12:00:00.000Z",
+    "endedAt": "2026-05-20T13:19:00.000Z",
+    "durationSec": 4740,
+    "source": "reference",
+    "status": "saved",
+    "obsClientMode": "mock",
+    "commentCount": 42,
+    "alertCount": 3,
+    "streamStateCount": 12,
+    "reportAvailable": true,
+    "plannedDirectory": "logs/sessions/sl_session_20260520_120000_refa01",
+    "files": ["session.json", "comments.jsonl", "alerts.jsonl", "stream-state.jsonl", "report.json", "report.md"],
+    "notes": "reference sample"
+  }
+]

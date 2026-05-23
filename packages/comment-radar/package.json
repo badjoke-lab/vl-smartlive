@@ -1,0 +1,16 @@
+{
+  "name": "@vl-smartlive/comment-radar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-first rule-based Raw/Radar comment classification for SmartLive / VL SmartLive.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "check": "node ../../scripts/check-comment-radar.mjs",
+    "test": "node ../../scripts/check-comment-radar.mjs"
+  },
+  "dependencies": {
+    "@vl-smartlive/log-schema": "workspace:*"
+  }
+}

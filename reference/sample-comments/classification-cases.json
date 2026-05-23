@@ -1,0 +1,71 @@
+[
+  {
+    "text": "これはどうやって設定するの？",
+    "expectedLabels": [
+      "question"
+    ],
+    "expectedHeld": false
+  },
+  {
+    "text": "マイク小さい",
+    "expectedLabels": [
+      "audio_issue"
+    ],
+    "expectedHeld": false
+  },
+  {
+    "text": "画面止まってる",
+    "expectedLabels": [
+      "video_issue"
+    ],
+    "expectedHeld": false
+  },
+  {
+    "text": "http://example.com 見て",
+    "expectedLabels": [
+      "url_detected",
+      "danger"
+    ],
+    "expectedHeld": true
+  },
+  {
+    "text": "test@example.com",
+    "expectedLabels": [
+      "personal_info_candidate"
+    ],
+    "expectedHeld": true
+  },
+  {
+    "text": "すごい",
+    "expectedLabels": [
+      "highlight"
+    ],
+    "expectedHeld": false
+  },
+  {
+    "text": "普通のコメント",
+    "expectedLabels": [
+      "normal"
+    ],
+    "expectedHeld": false
+  },
+  {
+    "text": "同じ文字!!!!!!!!",
+    "expectedLabels": [
+      "spam_candidate"
+    ],
+    "expectedHeld": false
+  },
+  {
+    "text": "これはNGです",
+    "options": {
+      "userNgWords": [
+        "NG"
+      ]
+    },
+    "expectedLabels": [
+      "ng_word"
+    ],
+    "expectedHeld": true
+  }
+]

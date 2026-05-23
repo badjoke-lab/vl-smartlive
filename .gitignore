@@ -1,0 +1,25 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
+*.key
+*.pem
+
+# Dependencies / builds
+node_modules/
+dist/
+build/
+out/
+
+# Local logs and recordings
+sessions/
+logs/
+recordings/
+*.mp4
+*.mov
+*.mkv
+*.flv
+*.jsonl.local

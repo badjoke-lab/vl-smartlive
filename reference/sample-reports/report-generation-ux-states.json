@@ -1,0 +1,10 @@
+{
+  "states": [
+    {"status":"needs_session","headline":"Start session first.","missingInputs":["session"]},
+    {"status":"needs_log_plans","headline":"Prepare log plans first.","missingInputs":["session plan","comments plan"]},
+    {"status":"ready","headline":"Ready to prepare report preview.","missingInputs":[]},
+    {"status":"preview_ready","headline":"Report preview is ready.","missingInputs":[]},
+    {"status":"output_ready","headline":"Report output is ready.","missingInputs":[]},
+    {"status":"blocked","headline":"Report generation is blocked.","missingInputs":["validation"]}
+  ]
+}

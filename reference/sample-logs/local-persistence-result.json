@@ -1,0 +1,24 @@
+{
+  "successExample": {
+    "status": "success",
+    "filesWritten": 4,
+    "appendOperations": 2,
+    "failedOperations": 0,
+    "skippedOperations": 0,
+    "outputDirectory": "logs/sessions/sl_session_20260521_120000_abc123",
+    "errorMessages": [],
+    "completedAt": "2026-05-21T12:00:00.000Z"
+  },
+  "unsupportedRuntimeExample": {
+    "status": "unsupported_runtime",
+    "filesWritten": 0,
+    "appendOperations": 0,
+    "failedOperations": 0,
+    "skippedOperations": 6,
+    "outputDirectory": "logs/sessions/sl_session_20260521_120000_abc123",
+    "errorMessages": [
+      "Local file writing requires a supported desktop runtime."
+    ],
+    "completedAt": "2026-05-21T12:00:00.000Z"
+  }
+}

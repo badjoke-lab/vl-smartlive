@@ -1,0 +1,15 @@
+{
+  "sessionId": "sl_session_20260521_120000_abc123",
+  "plannedSessionDirectory": "logs/sessions/sl_session_20260521_120000_abc123",
+  "status": "ready",
+  "operations": [
+    {"operationId":"op-001","fileKind":"session.json","operationType":"writeText","targetPath":"logs/sessions/sl_session_20260521_120000_abc123/session.json","text":"{\n  \"sessionId\": \"sl_session_20260521_120000_abc123\"\n}\n"},
+    {"operationId":"op-002","fileKind":"comments.jsonl","operationType":"appendJsonl","targetPath":"logs/sessions/sl_session_20260521_120000_abc123/comments.jsonl","lineCount":2,"text":"{\"commentId\":\"c1\"}\n{\"commentId\":\"c2\"}\n"},
+    {"operationId":"op-003","fileKind":"alerts.jsonl","operationType":"appendJsonl","targetPath":"logs/sessions/sl_session_20260521_120000_abc123/alerts.jsonl","lineCount":1,"text":"{\"alertId\":\"a1\"}\n"},
+    {"operationId":"op-004","fileKind":"stream-state.jsonl","operationType":"appendJsonl","targetPath":"logs/sessions/sl_session_20260521_120000_abc123/stream-state.jsonl","lineCount":1,"text":"{\"entryId\":\"s1\"}\n"},
+    {"operationId":"op-005","fileKind":"report.json","operationType":"writeText","targetPath":"logs/sessions/sl_session_20260521_120000_abc123/report.json","text":"{\"source\":\"obs-bridge\"}\n"},
+    {"operationId":"op-006","fileKind":"report.md","operationType":"writeText","targetPath":"logs/sessions/sl_session_20260521_120000_abc123/report.md","text":"# OBS Bridge Report\n"}
+  ],
+  "validationErrors": [],
+  "createdAt": "2026-05-21T12:00:00.000Z"
+}

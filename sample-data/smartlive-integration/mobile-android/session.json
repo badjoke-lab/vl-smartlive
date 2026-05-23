@@ -1,0 +1,7 @@
+{
+  "appEdition": "mobile-android",
+  "source": "mobile-android",
+  "sessionId": "mobile-android-sess-001",
+  "rtmpEndpoint": "rtmps://example.invalid/live/<redacted>",
+  "startedAt": "2026-05-21T10:00:00Z"
+}

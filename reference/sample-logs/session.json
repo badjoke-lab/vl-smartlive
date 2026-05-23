@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "smartlive.log.v0.1",
+  "appId": "obs-bridge",
+  "appVersion": "0.1.0",
+  "sessionId": "sl_session_20260520_120000_a8f2",
+  "createdAt": "2026-05-20T12:00:00.000+09:00",
+  "updatedAt": "2026-05-20T13:20:00.000+09:00",
+  "title": "Test stream",
+  "platform": "mock",
+  "mode": "obs_bridge",
+  "startedAt": "2026-05-20T12:01:00.000+09:00",
+  "endedAt": "2026-05-20T13:20:00.000+09:00",
+  "durationSec": 4740,
+  "status": "ended",
+  "source": {
+    "obs": {
+      "host": "127.0.0.1",
+      "port": 4455,
+      "currentSceneName": "Main"
+    }
+  },
+  "output": {
+    "targetType": "obs",
+    "targetLabel": "OBS Studio",
+    "resolution": "1920x1080",
+    "fps": 30
+  },
+  "counters": {
+    "commentsTotal": 2,
+    "questionsTotal": 0,
+    "audioIssuesTotal": 1,
+    "videoIssuesTotal": 0,
+    "dangerHeldTotal": 1,
+    "alertsTotal": 1,
+    "readAloudTotal": 1
+  }
+}

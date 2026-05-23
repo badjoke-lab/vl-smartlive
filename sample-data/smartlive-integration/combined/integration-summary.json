@@ -1,0 +1,11 @@
+{
+  "appEdition": "combined",
+  "source": "integration",
+  "editions": [
+    "obs-bridge",
+    "pc-standalone",
+    "mobile-android"
+  ],
+  "allIndividualGatesComplete": true,
+  "allFourEditionReleaseComplete": false
+}

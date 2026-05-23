@@ -1,0 +1,15 @@
+{
+  "status": "active",
+  "session": {
+    "sessionId": "sl_session_20260521_120000_000abc",
+    "appId": "smartlive.obs-bridge",
+    "appVersion": "0.0.0",
+    "mode": "local-preview",
+    "platform": "desktop",
+    "startedAt": "2026-05-21T12:00:00.000Z",
+    "obsClientMode": "mock",
+    "logSchemaVersion": "smartlive.log.v0.1",
+    "notes": "sample-only"
+  },
+  "plannedLogDirectory": "logs/sessions/sl_session_20260521_120000_000abc"
+}

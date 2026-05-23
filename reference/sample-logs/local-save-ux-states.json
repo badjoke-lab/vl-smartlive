@@ -1,0 +1,10 @@
+{
+  "examples": [
+    { "status": "needs_session", "headline": "Start session first", "blockingReasons": ["No active session"] },
+    { "status": "needs_plans", "headline": "Prepare missing plans", "blockingReasons": ["Missing: session.json, comments.jsonl"] },
+    { "status": "ready_to_save", "headline": "Ready to save", "blockingReasons": [] },
+    { "status": "unsupported_runtime", "headline": "Runtime unsupported", "blockingReasons": ["Local file writing requires a supported desktop runtime."] },
+    { "status": "saved", "headline": "Save succeeded", "filesWritten": ["session.json", "comments.jsonl"] },
+    { "status": "partial_failure", "headline": "Save completed with issues", "filesWritten": ["session.json"], "filesSkipped": ["alerts.jsonl"] }
+  ]
+}

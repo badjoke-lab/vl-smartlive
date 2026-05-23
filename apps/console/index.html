@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SmartLive Console</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <h1>SmartLive Console — Four-edition integration hardening</h1>
+      <section class="panel">
+        <h2>Load data</h2>
+        <div class="button-row">
+          <button id="loadObsBridgeSampleButton" type="button">Load OBS Bridge sample</button>
+          <button id="loadPcStandaloneSampleButton" type="button">Load PC Standalone sample</button>
+          <button id="loadMobileAndroidSampleButton" type="button">Load Mobile Android sample</button>
+          <button id="loadSampleDataButton" type="button">Load generic bundled sample</button>
+          <span class="sr-only">Load bundled sample data</span>
+        </div>
+        <p id="dataSourceState">No data loaded yet.</p>
+        <p>local-only: no upload / no cloud backend / no login/account.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Current loaded source card</h2>
+        <p id="detectedSource">unknown</p>
+        <p id="mixedSourceWarning"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Loaded files checklist</h2>
+        <ul id="fileChecklist">
+          <li data-file-key="session.json"><span class="check-status">Pending</span> session.json</li>
+          <li data-file-key="comments.jsonl"><span class="check-status">Pending</span> comments.jsonl</li>
+          <li data-file-key="alerts.jsonl"><span class="check-status">Pending</span> alerts.jsonl</li>
+          <li data-file-key="stream-state.jsonl"><span class="check-status">Pending</span> stream-state.jsonl</li>
+          <li data-file-key="report.md"><span class="check-status">Pending</span> report.md</li>
+          <li data-file-key="report.json"><span class="check-status">Pending</span> report.json</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>Local file loaders</h2>
+        <input id="sessionFileInput" type="file" accept=".json,application/json" />
+        <input id="commentsFileInput" type="file" accept=".jsonl,.txt,application/json" />
+        <input id="alertsFileInput" type="file" accept=".jsonl,.txt,application/json" />
+        <input id="streamStateFileInput" type="file" accept=".jsonl,.txt,application/json" />
+        <input id="reportMarkdownFileInput" type="file" accept=".md,.txt,text/markdown" />
+        <input id="reportJsonFileInput" type="file" accept=".json,application/json" />
+      </section>
+
+      <section class="panel"><h2>Source compatibility summary</h2><dl id="sourceCompatibilitySummary"></dl></section>
+      <section class="panel"><h2>Session summary</h2><dl id="sessionSummary"></dl></section>
+      <section class="panel"><h2>Comments</h2><button class="tab active" data-mode="raw">Raw</button><button class="tab" data-mode="radar">Radar</button><div id="commentList"></div></section>
+      <section class="panel"><h2>Alerts list</h2><div id="alertsJsonlList"></div></section>
+      <section class="panel"><h2>Stream-state timeline</h2><div id="streamStateJsonlList"></div></section>
+      <section class="panel"><h2>Report preview</h2><p>SmartLive Mobile / SmartLive OBS Bridge</p></section>
+      <section class="panel"><h2>Report markdown preview</h2><pre id="reportMarkdownPreview"></pre></section>
+      <section class="panel"><h2>Report JSON summary</h2><dl id="reportJsonSummary"></dl></section>
+      <section class="panel"><h2>Parse warnings/errors panel</h2><ul id="parseWarningsPanel"></ul></section>
+    </main>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

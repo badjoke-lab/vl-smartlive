@@ -1,0 +1,12 @@
+{
+  "items": [
+    {"id":"unsupported_runtime","severity":"blocked","title":"Unsupported runtime","message":"Desktop APIs are unavailable in static preview."},
+    {"id":"invalid_plan","severity":"blocked","title":"Local write plan invalid","message":"Validation failed before save."},
+    {"id":"partial_failure","severity":"error","title":"Partial save failure","message":"Some files were written; some were skipped."},
+    {"id":"storage_unavailable","severity":"warning","title":"Settings storage unavailable","message":"Settings could not be persisted in this runtime."},
+    {"id":"missing_session","severity":"blocked","title":"Missing session","message":"Start session before preparing logs."},
+    {"id":"missing_log_plans","severity":"blocked","title":"Missing preview plans","message":"Prepare session/comments/alerts/stream-state/report plans."},
+    {"id":"pw_not_saved","severity":"info","title":"OBS auth value is not saved","message":"Auth value is runtime-only by safety policy."},
+    {"id":"mock_mode_active","severity":"info","title":"Mock OBS active","message":"Mock mode remains safe default."}
+  ]
+}

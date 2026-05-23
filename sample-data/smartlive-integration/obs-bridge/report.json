@@ -1,0 +1,15 @@
+{
+  "appEdition": "obs-bridge",
+  "source": "obs-bridge",
+  "summary": {
+    "labelsCovered": [
+      "question",
+      "audio_issue",
+      "video_issue",
+      "danger",
+      "highlight",
+      "general"
+    ],
+    "localReport": true
+  }
+}

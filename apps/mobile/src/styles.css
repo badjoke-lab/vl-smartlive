@@ -1,0 +1,22 @@
+:root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; background:#0b1017; color:#e6edf3; }
+* { box-sizing: border-box; }
+body { margin:0; min-height:100vh; background:linear-gradient(180deg,#0b1017,#121b27); }
+.mobile-shell { max-width:460px; margin:0 auto; padding:14px 12px 28px; display:grid; gap:12px; }
+.card { background:#171d28; border:1px solid #2d3643; border-radius:14px; padding:12px; display:grid; gap:8px; }
+.hero-card { border-color:#3f4f66; }
+h1,h2,h3,p { margin:0; }
+h1 { font-size:1.2rem; } h2 { font-size:1rem; } h3 { font-size:.9rem; color:#9fd7ff; }
+.support-note,.policy-note,.comments-empty-state { font-size:.84rem; color:#a9b8c8; }
+.guide-list { margin:0; padding-left:18px; display:grid; gap:4px; }
+.toggle-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.action-button,.toggle-button { border:1px solid #3f4c5d; background:#0f1622; color:#d7e0eb; border-radius:10px; padding:8px; }
+.comments-list,.review-list { list-style:none; padding:0; margin:6px 0 0; display:grid; gap:6px; }
+.comment-item { border:1px solid #2f3946; border-radius:10px; padding:8px; background:#101722; }
+.comment-meta { font-size:.78rem; color:#9db0c2; }
+.comment-message { margin-top:4px; font-size:.9rem; }
+.review-panel { padding:8px; border:1px solid #324154; border-radius:10px; }
+.camera-preview { width:100%; min-height:140px; background:#0c1018; border-radius:8px; }
+.field-input { width:100%; padding:8px; background:#0f1622; color:#e6edf3; border:1px solid #33455a; border-radius:8px; }
+.field-label { font-size:.82rem; color:#b7c5d4; }
+meter { width:100%; }
+@media (max-width:360px){ .toggle-actions { grid-template-columns:1fr; } }

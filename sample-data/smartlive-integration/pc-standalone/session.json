@@ -1,0 +1,7 @@
+{
+  "appEdition": "pc-standalone",
+  "source": "pc-standalone",
+  "sessionId": "pc-standalone-sess-001",
+  "rtmpEndpoint": "rtmps://example.invalid/live/<redacted>",
+  "startedAt": "2026-05-21T10:00:00Z"
+}

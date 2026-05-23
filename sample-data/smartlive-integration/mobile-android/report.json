@@ -1,0 +1,15 @@
+{
+  "appEdition": "mobile-android",
+  "source": "mobile-android",
+  "summary": {
+    "labelsCovered": [
+      "question",
+      "audio_issue",
+      "video_issue",
+      "danger",
+      "highlight",
+      "general"
+    ],
+    "localReport": true
+  }
+}

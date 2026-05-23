@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b1017" />
+    <title>SmartLive Mobile v1 Candidate</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="mobile-shell">
+      <header class="card hero-card">
+        <p class="eyebrow">ViewLoom · Mobile</p>
+        <h1>SmartLive Mobile usable v1 candidate</h1>
+        <p class="lead">Smartphone-first local/browser/PWA candidate. No cloud backend, no external API dependency, and no login/account.</p>
+      </header>
+
+      <section class="card">
+        <h2>First-run guide</h2>
+        <ol class="guide-list">
+          <li>Tap <strong>Load bundled sample data</strong> to enable comments, Raw/Radar, session/log/report.</li>
+          <li>Review limitations and permission messaging before camera/mic checks.</li>
+          <li>Tap camera/mic buttons only when ready. No automatic access on page load.</li>
+          <li>Set RTMP/RTMPS target. Browser-only v1 keeps streaming inactive.</li>
+        </ol>
+        <button id="load-sample-button" class="action-button" type="button">Load bundled sample data</button>
+        <p id="data-status" class="support-note"></p>
+      </section>
+
+      <section class="card comments-card">
+        <h2>Comments panel (visible by default)</h2>
+        <div class="raw-radar-toggle" role="group" aria-label="Raw and Radar mode">
+          <div class="toggle-actions">
+            <button id="raw-mode-button" class="toggle-button" type="button" aria-pressed="true">Raw mode</button>
+            <button id="radar-mode-button" class="toggle-button" type="button" aria-pressed="false">Radar mode</button>
+          </div>
+        </div>
+        <ul id="comments-list" class="comments-list"></ul>
+        <p id="comments-empty-state" class="comments-empty-state"></p>
+      </section>
+
+      <section class="card">
+        <h2>Session / log / report summary</h2>
+        <p class="support-note">Device-local status only; no cloud backend and no account sync.</p>
+        <section class="review-panel"><h3>Session summary</h3><ul id="session-summary-list" class="review-list"></ul></section>
+        <section class="review-panel"><h3>Log</h3><ul id="log-preview-list" class="review-list"></ul></section>
+        <section class="review-panel"><h3>Report</h3><ul id="report-preview-list" class="review-list"></ul></section>
+        <div class="toggle-actions">
+          <button id="download-log-button" class="action-button" type="button">Download logs (.json)</button>
+          <button id="download-report-button" class="action-button" type="button">Download report (.json)</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Camera / microphone readiness</h2>
+        <p class="policy-note">Permission required. Access happens only after pressing a button.</p>
+        <div class="toggle-actions">
+          <button id="camera-check-button" class="action-button" type="button">Check camera preview</button>
+          <button id="mic-check-button" class="action-button" type="button">Check microphone level</button>
+        </div>
+        <p id="camera-status" class="support-note"></p>
+        <video id="camera-preview" class="camera-preview" autoplay playsinline muted></video>
+        <p id="mic-status" class="support-note"></p>
+        <meter id="mic-level" min="0" max="1" value="0"></meter>
+      </section>
+
+      <section class="card">
+        <h2>RTMP / RTMPS target setup</h2>
+        <label class="field-label" for="stream-url">Stream URL</label>
+        <input id="stream-url" class="field-input" placeholder="rtmps://example.com/live" />
+        <label class="field-label" for="stream-key">Stream key / OBS password</label>
+        <input id="stream-key" class="field-input" type="password" placeholder="never saved or logged" />
+        <button id="validate-stream-button" class="action-button" type="button">Validate target locally</button>
+        <p id="stream-status" class="support-note"></p>
+        <p class="policy-note">Streaming is not yet active in browser-only v1. Required next step: native/package bridge for actual RTMP transmission.</p>
+      </section>
+
+      <section class="card">
+        <h2>Install guidance (PWA)</h2>
+        <p class="support-note">Open in smartphone browser and use Add to Home Screen / Install App prompt where available.</p>
+      </section>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

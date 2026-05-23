@@ -1,0 +1,16 @@
+{
+  "name": "@vl-smartlive/console",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SmartLive Console static shell for local log review and report preview.",
+  "scripts": {
+    "check": "node ../../scripts/check-web-console.mjs",
+    "dev": "node ../../scripts/serve-console.mjs"
+  },
+  "dependencies": {
+    "@vl-smartlive/log-schema": "workspace:*",
+    "@vl-smartlive/comment-radar": "workspace:*",
+    "@vl-smartlive/report-engine": "workspace:*"
+  }
+}

@@ -1,0 +1,4 @@
+{"appEdition": "mobile-android", "source": "mobile-android", "at": "2026-05-21T10:00:10Z", "comment": "音声が小さいかも？", "labels": ["audio_issue", "question"]}
+{"appEdition": "mobile-android", "source": "mobile-android", "at": "2026-05-21T10:00:20Z", "comment": "映像が少しカクつきます", "labels": ["video_issue"]}
+{"appEdition": "mobile-android", "source": "mobile-android", "at": "2026-05-21T10:00:35Z", "comment": "この場面最高！", "labels": ["highlight", "general"]}
+{"appEdition": "mobile-android", "source": "mobile-android", "at": "2026-05-21T10:00:50Z", "comment": "危険物が映っています、注意してください", "labels": ["danger"]}

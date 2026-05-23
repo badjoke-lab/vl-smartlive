@@ -1,0 +1,23 @@
+{
+  "name": "@vl-smartlive/obs-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SmartLive OBS Bridge shell for always-visible comments, Raw/Radar, local logs, and report preview.",
+  "scripts": {
+    "check": "node ../../scripts/check-obs-bridge-shell.mjs && node ../../scripts/check-obs-bridge-runtime.mjs",
+    "dev": "echo \"Runtime dependencies deferred pending registry access.\"",
+    "dev:electron": "echo \"Electron dependency intentionally deferred (registry 403 in CI/dev env). Use mock mode via pnpm --filter @vl-smartlive/obs-bridge dev.\"",
+    "build": "echo \"Runtime dependencies deferred pending registry access.\"",
+    "preview": "echo \"Runtime dependencies deferred pending registry access.\"",
+    "start": "echo \"Electron dependency intentionally deferred until registry access is available.\""
+  },
+  "main": "dist-electron/main/index.js",
+  "dependencies": {
+    "@vl-smartlive/comment-radar": "workspace:*",
+    "@vl-smartlive/log-schema": "workspace:*",
+    "@vl-smartlive/report-engine": "workspace:*",
+    "@vl-smartlive/shared-config": "workspace:*"
+  },
+  "devDependencies": {}
+}

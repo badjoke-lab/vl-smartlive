@@ -1,0 +1,6 @@
+{"timestamp":"2026-05-20T12:01:01+09:00","user":{"displayName":"視聴者A"},"text":"マイク小さいかも","labels":["audio_issue"],"priority":"high"}
+{"timestamp":"2026-05-20T12:01:20+09:00","user":{"displayName":"視聴者B"},"text":"次のテーマは何ですか？","labels":["question"],"priority":"normal"}
+{"timestamp":"2026-05-20T12:02:10+09:00","user":{"displayName":"視聴者C"},"text":"映像がカクつきました","labels":["video_issue"],"priority":"high"}
+{"timestamp":"2026-05-20T12:02:55+09:00","user":{"displayName":"視聴者D"},"text":"この説明すごく分かりやすいです","labels":["highlight"],"priority":"normal"}
+{"timestamp":"2026-05-20T12:03:42+09:00","user":{"displayName":"視聴者E"},"text":"https://bad.example/offer","labels":["url_detected"],"held":true,"priority":"urgent"}
+{"timestamp":"2026-05-20T12:04:11+09:00","user":{"displayName":"視聴者F"},"text":"いつも応援しています","labels":["general"],"priority":"low"}

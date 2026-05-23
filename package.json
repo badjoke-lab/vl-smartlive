@@ -1,0 +1,11 @@
+{
+  "name": "vl-smartlive",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.12.3",
+  "scripts": {
+    "check": "node scripts/check-public-surface.mjs",
+    "test": "node scripts/check-public-surface.mjs",
+    "public-surface:check": "node scripts/check-public-surface.mjs"
+  }
+}

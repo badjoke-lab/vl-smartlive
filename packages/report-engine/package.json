@@ -1,0 +1,16 @@
+{
+  "name": "@vl-smartlive/report-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local post-stream report generation for SmartLive / VL SmartLive.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "check": "node ../../scripts/check-report-engine.mjs",
+    "test": "node ../../scripts/check-report-engine.mjs"
+  },
+  "dependencies": {
+    "@vl-smartlive/log-schema": "workspace:*"
+  }
+}

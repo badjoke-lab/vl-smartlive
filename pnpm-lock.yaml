@@ -1,0 +1,52 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .: {}
+
+  apps/console:
+    dependencies:
+      '@vl-smartlive/comment-radar':
+        specifier: workspace:*
+        version: link:../../packages/comment-radar
+      '@vl-smartlive/log-schema':
+        specifier: workspace:*
+        version: link:../../packages/log-schema
+      '@vl-smartlive/report-engine':
+        specifier: workspace:*
+        version: link:../../packages/report-engine
+
+  apps/obs-bridge:
+    dependencies:
+      '@vl-smartlive/comment-radar':
+        specifier: workspace:*
+        version: link:../../packages/comment-radar
+      '@vl-smartlive/log-schema':
+        specifier: workspace:*
+        version: link:../../packages/log-schema
+      '@vl-smartlive/report-engine':
+        specifier: workspace:*
+        version: link:../../packages/report-engine
+      '@vl-smartlive/shared-config':
+        specifier: workspace:*
+        version: link:../../packages/shared-config
+
+  packages/comment-radar:
+    dependencies:
+      '@vl-smartlive/log-schema':
+        specifier: workspace:*
+        version: link:../log-schema
+
+  packages/log-schema: {}
+
+  packages/report-engine:
+    dependencies:
+      '@vl-smartlive/log-schema':
+        specifier: workspace:*
+        version: link:../log-schema
+
+  packages/shared-config: {}
