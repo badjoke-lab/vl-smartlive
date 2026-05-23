@@ -4,14 +4,15 @@
   "private": true,
   "packageManager": "pnpm@9.12.3",
   "scripts": {
-    "check": "node scripts/check-public-surface.mjs && node scripts/check-direct-release.mjs && node scripts/check-ui-smoke.mjs",
-    "test": "node scripts/check-public-surface.mjs && node scripts/check-direct-release.mjs && node scripts/check-ui-smoke.mjs",
+    "check": "node scripts/check-public-surface.mjs && node scripts/check-direct-release.mjs && node scripts/check-ui-smoke.mjs && node scripts/check-js-syntax.mjs",
+    "test": "node scripts/check-public-surface.mjs && node scripts/check-direct-release.mjs && node scripts/check-ui-smoke.mjs && node scripts/check-js-syntax.mjs",
     "public-surface:check": "node scripts/check-public-surface.mjs",
     "direct-release:check": "node scripts/check-direct-release.mjs",
     "ui-smoke:check": "node scripts/check-ui-smoke.mjs",
     "local-url:check": "node scripts/check-local-urls.mjs",
     "release:artifacts": "node scripts/build-release-artifacts.mjs",
     "release:direct": "node scripts/build-direct-release.mjs",
-    "release:direct:zips": "node scripts/build-direct-release-zips.mjs"
+    "release:direct:zips": "node scripts/build-direct-release-zips.mjs",
+    "pc-standalone:syntax-check": "node scripts/check-js-syntax.mjs"
   }
 }

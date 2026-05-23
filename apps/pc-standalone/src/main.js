@@ -15,11 +15,26 @@ const state = {
   ]
 };
 const navItems = ['Live','Prepare','Comments','Stability','Settings','Report'];
-const UI_SMOKE_TOKENS = 'Live Prepare Comments Stability Settings Report Language English 日本語 Raw Radar Use camera Use screen/window Enable microphone Validate target locally Stream key is not saved Download report.json Download logs.json Download comments.jsonl';
-
 const el=(t1,txt,cls)=>{const n=document.createElement(t1);if(cls)n.className=cls;if(txt!==undefined)n.textContent=txt;return n;};
 const validRtmp=(v)=>{try{const u=new URL(v);return ['rtmp:','rtmps:'].includes(u.protocol);}catch{return false;}};
-const commentsOrdered=()=> state.commentMode==='Raw' ? [...state.comments] : [...state.comments].sort((a,b)=>({warning:0,question:1,issue:2,praise:3}[a.radar]-({warning:0,question:1,issue:2,praise:3}[b.radar]));
+function commentsOrdered() {
+  if (state.commentMode === 'Raw') return [...state.comments];
+
+  const priority = {
+    warning: 0,
+    question: 1,
+    issue: 2,
+    praise: 3,
+    general: 4
+  };
+
+  return [...state.comments].sort((a, b) => {
+    const left = priority[a.radar] ?? 99;
+    const right = priority[b.radar] ?? 99;
+    return left - right;
+  });
+}
+
 
 function safeDownload(filename, text) { const blob = new Blob([text], { type: 'application/json;charset=utf-8' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
 
