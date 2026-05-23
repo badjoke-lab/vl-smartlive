@@ -4,9 +4,10 @@
   "private": true,
   "packageManager": "pnpm@9.12.3",
   "scripts": {
-    "check": "node scripts/check-public-surface.mjs",
-    "test": "node scripts/check-public-surface.mjs",
+    "check": "node scripts/check-public-surface.mjs && node scripts/check-direct-release.mjs",
+    "test": "node scripts/check-public-surface.mjs && node scripts/check-direct-release.mjs",
     "public-surface:check": "node scripts/check-public-surface.mjs",
+    "direct-release:check": "node scripts/check-direct-release.mjs",
     "release:artifacts": "node scripts/build-release-artifacts.mjs",
     "release:direct": "node scripts/build-direct-release.mjs"
   }
