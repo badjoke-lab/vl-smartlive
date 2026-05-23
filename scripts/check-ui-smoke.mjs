@@ -36,7 +36,7 @@ const cases = [
   {
     id: 'pc-standalone',
     files: ['apps/pc-standalone/index.html', 'apps/pc-standalone/src/main.js', 'apps/pc-standalone/src/i18n.js'],
-    terms: ['Live','Prepare','Comments','Stability','Settings','Report','Language','English','日本語','Raw','Radar','Use camera','Use screen/window','Enable microphone','Validate target locally','Stream key is not saved','Download report.json','Download logs.json','Download comments.jsonl'],
+    terms: ['Live','Prepare','Comments','Stability','Settings','Report','Language','English','日本語','Raw','Radar','Desktop capture','Ready for preview','Stream key is not saved','Download report.json','Download logs.json','Download comments.jsonl'],
     blocked: []
   },
   {
