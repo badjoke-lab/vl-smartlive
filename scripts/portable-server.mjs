@@ -19,13 +19,18 @@ const types = {
   '.md': 'text/markdown; charset=utf-8'
 };
 
+function isFile(path) {
+  return existsSync(path) && statSync(path).isFile();
+}
+
 function findFile(url) {
   const clean = String(url || '/').split('?')[0].replace(/^\/+/, '') || 'index.html';
   const first = resolve(root, clean);
   if (!first.startsWith(root)) return null;
-  if (existsSync(first) && statSync(first).isFile()) return first;
+  if (isFile(first)) return first;
+  if (!extname(first) && isFile(`${first}.js`)) return `${first}.js`;
   const index = join(first, 'index.html');
-  if (existsSync(index) && statSync(index).isFile()) return index;
+  if (isFile(index)) return index;
   return null;
 }
 
