@@ -6,6 +6,7 @@
   "scripts": {
     "check": "node scripts/check-public-surface.mjs",
     "test": "node scripts/check-public-surface.mjs",
-    "public-surface:check": "node scripts/check-public-surface.mjs"
+    "public-surface:check": "node scripts/check-public-surface.mjs",
+    "release:artifacts": "node scripts/build-release-artifacts.mjs"
   }
 }
