@@ -36,7 +36,7 @@ const cases = [
   {
     id: 'pc-standalone',
     files: ['apps/pc-standalone/index.html', 'apps/pc-standalone/src/main.js', 'apps/pc-standalone/src/i18n.js'],
-    terms: ['Live','Prepare','Comments','Stability','Settings','Report','Language','English','日本語','Setup steps','Source selection','Platform selection','Comment integration','Selected comment','Read queue','Alert summary','Active alerts','Stability mode recommended','Stream settings','Input settings','Display settings','Comment settings','Read-aloud settings','Summary metric cards','Highlight candidates','Trouble history','Ready for preview','Stream key is not saved','Download report.json','Download logs.json','Download comments.jsonl'],
+    terms: ['SmartLive','Standalone','Connection','Encoder','Dropped frames','Live','Prepare','Comments','Stability','Settings','Report','PREVIEW','Scene: Game Main','Screen capture','Camera','Microphone','Upload speed','CPU usage','GPU usage','Connected','Preview only','Setup steps','Comment integration','Selected comment','Alert summary','Stability mode recommended','Stream settings','Input settings','Display settings','Comment settings','Read-aloud settings','Summary metric cards','Highlight candidates','Trouble history','Ready for preview','Open preview','Validate setup','Stream key is not saved','Download report.json','Download logs.json','Download comments.jsonl'],
     blocked: []
   },
   {
