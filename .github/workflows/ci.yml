@@ -21,6 +21,7 @@ jobs:
       - run: pnpm run public-surface:check
       - run: pnpm run release:direct
       - run: pnpm run direct-release:check
+      - run: pnpm run ui-smoke:check
       - run: pnpm run release:direct:zips
       - run: test -f dist/direct-release/obs-bridge/start-macos.command
       - run: test -f dist/direct-release/web-console/start-macos.command
