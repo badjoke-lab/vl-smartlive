@@ -19,3 +19,8 @@ jobs:
       - run: pnpm --version
       - run: pnpm install --lockfile-only
       - run: pnpm run check
+      - run: pnpm run release:direct
+      - run: test -f dist/direct-release/obs-bridge/start-macos.command
+      - run: test -f dist/direct-release/web-console/start-macos.command
+      - run: test -f dist/direct-release/pc-standalone/start-macos.command
+      - run: test -f dist/direct-release/mobile/start-macos.command
