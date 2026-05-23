@@ -1,0 +1,42 @@
+name: UI Capture
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'scripts/**'
+      - '.github/workflows/ui-capture.yml'
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable
+      - run: corepack prepare pnpm@9.12.3 --activate
+      - run: pnpm install --lockfile-only
+      - run: pnpm run release:direct
+      - run: mkdir -p dist/ui-capture
+      - run: |
+          cd dist/direct-release/obs-bridge
+          node server.mjs & echo $! > /tmp/obs.pid
+          cd ../web-console
+          node server.mjs & echo $! > /tmp/web.pid
+          cd ../pc-standalone
+          node server.mjs & echo $! > /tmp/pc.pid
+          cd ../mobile
+          node server.mjs & echo $! > /tmp/mobile.pid
+          sleep 3
+      - run: |
+          google-chrome --headless=new --no-sandbox --window-size=1440,1000 --screenshot=dist/ui-capture/obs-bridge.png http://127.0.0.1:4176/
+          google-chrome --headless=new --no-sandbox --window-size=1440,1000 --screenshot=dist/ui-capture/web-console.png http://127.0.0.1:4173/
+          google-chrome --headless=new --no-sandbox --window-size=1440,1000 --screenshot=dist/ui-capture/pc-standalone.png http://127.0.0.1:4174/
+          google-chrome --headless=new --no-sandbox --window-size=390,900 --screenshot=dist/ui-capture/mobile.png http://127.0.0.1:4175/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smartlive-ui-capture
+          path: dist/ui-capture/*.png
