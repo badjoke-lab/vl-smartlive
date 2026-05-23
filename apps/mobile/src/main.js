@@ -116,6 +116,18 @@ function validateStreamTarget() {
   renderReview();
 }
 
+function setupBottomNav() {
+  document.querySelectorAll('[data-scroll-target]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const target = document.getElementById(button.dataset.scrollTarget);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelectorAll('[data-scroll-target]').forEach((item) => item.classList.toggle('active', item === button));
+      addLog('INFO', `Navigation moved to ${button.dataset.scrollTarget}.`);
+      renderReview();
+    });
+  });
+}
+
 function setup() {
   document.getElementById('load-sample-button')?.addEventListener('click', () => {
     sampleLoaded = true;
@@ -130,6 +142,7 @@ function setup() {
   document.getElementById('camera-check-button')?.addEventListener('click', requestCameraPreview);
   document.getElementById('mic-check-button')?.addEventListener('click', requestMicLevel);
   document.getElementById('validate-stream-button')?.addEventListener('click', validateStreamTarget);
+  setupBottomNav();
 
   text('data-status', 'No data loaded yet.');
   text('camera-status', 'Camera is idle. No automatic access.');
