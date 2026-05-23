@@ -77,7 +77,7 @@ The direct release check verifies required files for all four editions, shared p
 - Runtime credentials must remain runtime-only.
 - OBS password, stream key, tokens, and secret values must not be saved, displayed after entry, logged, exported, or embedded in generated files.
 - OBS Bridge remains read-only for OBS status in this bundle.
-- No cloud backend, hosted service dependency, paid API, or account login is required for the direct bundles.
+- No cloud backend, hosted service dependency, account login, or billable third-party API connection is required for the direct bundles.
 
 ## Distribution status
 
