@@ -18,8 +18,9 @@ jobs:
       - run: corepack prepare pnpm@9.12.3 --activate
       - run: pnpm --version
       - run: pnpm install --lockfile-only
-      - run: pnpm run check
+      - run: pnpm run public-surface:check
       - run: pnpm run release:direct
+      - run: pnpm run direct-release:check
       - run: test -f dist/direct-release/obs-bridge/start-macos.command
       - run: test -f dist/direct-release/web-console/start-macos.command
       - run: test -f dist/direct-release/pc-standalone/start-macos.command
