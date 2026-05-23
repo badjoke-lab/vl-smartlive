@@ -21,7 +21,13 @@ jobs:
       - run: pnpm run public-surface:check
       - run: pnpm run release:direct
       - run: pnpm run direct-release:check
+      - run: pnpm run release:direct:zips
       - run: test -f dist/direct-release/obs-bridge/start-macos.command
       - run: test -f dist/direct-release/web-console/start-macos.command
       - run: test -f dist/direct-release/pc-standalone/start-macos.command
       - run: test -f dist/direct-release/mobile/start-macos.command
+      - run: test -f dist/direct-release/obs-bridge.zip
+      - run: test -f dist/direct-release/web-console.zip
+      - run: test -f dist/direct-release/pc-standalone.zip
+      - run: test -f dist/direct-release/mobile.zip
+      - run: test -f dist/direct-release/SHA256SUMS.txt
