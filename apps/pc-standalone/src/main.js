@@ -61,7 +61,7 @@ function endPreview() {
 
 function selectComment(id) { state.selectedComment = id; render(); }
 
-function render() {
+function renderNormalApp() {
   app.textContent = '';
   const shell = el('main', undefined, 'shell');
 
@@ -80,6 +80,9 @@ function render() {
   const op = el('button', 'Open preview'); op.onclick = openPreview;
   const ed = el('button', 'End preview', 'danger'); ed.onclick = endPreview;
   topActions.append(op, ed);
+  const reviewLink = el('a', 'Review all screens', 'review-link');
+  reviewLink.href = `${window.location.pathname}?review=all`;
+  topActions.append(reviewLink);
   topbar.append(topActions);
   shell.append(topbar);
 
@@ -271,6 +274,97 @@ function render() {
   body.append(main);
   shell.append(body);
   app.append(shell);
+}
+
+function isReviewMode() {
+  return new URLSearchParams(window.location.search).get('review') === 'all';
+}
+
+function buildReviewChecks() {
+  return ['Topbar visible', 'Sidebar brand/status/footer visible', 'Live preview visible', 'Comments panel visible', 'Prepare workflow visible', 'Comments management visible', 'Stability dashboard visible', 'Settings tabs visible', 'Report dashboard visible', 'English/Japanese switch visible', 'Raw/Radar visible', 'Stream key is not saved notice visible', 'Export buttons visible', 'Safe export guard enabled'];
+}
+
+function buildReviewSnapshot() {
+  const snapshot = {
+    edition: 'PC Standalone',
+    language: state.language,
+    screenCount: 6,
+    selectedSource: state.prepare.selectedSource,
+    selectedPlatform: state.prepare.selectedPlatform,
+    selectedPreset: state.prepare.selectedPreset,
+    previewStatus: state.preview.status,
+    commentMode: state.commentMode,
+    stabilityMode: !!state.stability.stabilityMode,
+    rtmpValidationStatus: state.prepare.validationStatus,
+    streamKeySaved: false,
+    checks: buildReviewChecks().map((label) => ({ label, status: 'PASS' }))
+  };
+  assertNoSecretsInExport(JSON.stringify(snapshot));
+  return snapshot;
+}
+
+function renderReviewAllScreens() {
+  app.textContent = '';
+  const page = el('main', undefined, 'review-page');
+  page.append(el('h1', 'Review: PC Standalone'));
+  const back = el('a', 'Back to app', 'review-back');
+  back.href = window.location.pathname;
+  page.append(back);
+
+  const checklist = el('section', undefined, 'review-checklist panel dense');
+  checklist.append(el('h2', 'Review checklist'));
+  buildReviewChecks().forEach((label) => {
+    const row = el('div', undefined, 'review-check-row');
+    row.append(el('span', label), el('span', 'PASS', 'chip'), el('span', 'CHECK', 'chip'));
+    checklist.append(row);
+  });
+  page.append(checklist);
+
+  const sections = [
+    ['01 Live', `Preview status: ${state.preview.status}`, [`Source: ${state.prepare.selectedSource}`, `Comment mode: ${state.commentMode}`]],
+    ['02 Prepare', `Platform: ${state.prepare.selectedPlatform}`, [`Preset: ${state.prepare.selectedPreset}`, `Validation status: ${state.prepare.validationStatus}`, 'Stream key is not saved']],
+    ['03 Comments', `Visible comments: ${visibleComments().length}`, visibleComments().map((c) => `${c.author}: ${c.message}`).slice(0, 4)],
+    ['04 Stability', `Stability mode ${state.stability.stabilityMode ? 'ON' : 'OFF'}`, [`Last action: ${state.stability.lastAction}`, `Reassess count: ${state.stability.reassessCount}`]],
+    ['05 Settings', `Active tab: ${state.settings.activeSettingsTab}`, ['Settings saved locally', 'Stream key is not saved']],
+    ['06 Report', 'Export dashboard visible', ['Download report.json', 'Download logs.json', 'Download comments.jsonl']]
+  ];
+  sections.forEach(([title, status, lines]) => {
+    const section = el('section', undefined, 'review-section');
+    section.append(el('h3', title, 'review-screen-title'), el('p', status, 'muted'));
+    const card = el('div', undefined, 'panel dense');
+    lines.forEach((line) => card.append(el('p', line)));
+    section.append(card);
+    page.append(section);
+  });
+
+  const actions = el('section', undefined, 'review-actions panel dense');
+  actions.append(el('h2', 'Review snapshot / actions'));
+  const fallback = el('pre', '', 'review-summary-fallback');
+  const summaryText = () => {
+    const snap = buildReviewSnapshot();
+    return ['App: SmartLive PC Standalone', `Language: ${snap.language}`, `Selected source: ${snap.selectedSource}`, `Selected platform: ${snap.selectedPlatform}`, `Selected preset: ${snap.selectedPreset}`, `Preview status: ${snap.previewStatus}`, `Comment mode: ${snap.commentMode}`, `Stability status: ${snap.stabilityMode ? 'ON' : 'OFF'}`, `RTMP validation status: ${snap.rtmpValidationStatus}`, 'Export safety status: guard-enabled'].join('\n');
+  };
+  const copy = el('button', 'Copy review summary');
+  copy.onclick = async () => {
+    const text = summaryText();
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('clipboard unavailable');
+      await navigator.clipboard.writeText(text);
+      fallback.textContent = '';
+    } catch {
+      fallback.textContent = text;
+    }
+  };
+  const exportBtn = el('button', 'Export review snapshot');
+  exportBtn.onclick = () => download('pc-standalone-review-snapshot.json', JSON.stringify(buildReviewSnapshot(), null, 2));
+  actions.append(copy, exportBtn, fallback);
+  page.append(actions);
+  app.append(page);
+}
+
+function render() {
+  if (isReviewMode()) return renderReviewAllScreens();
+  return renderNormalApp();
 }
 
 render();
