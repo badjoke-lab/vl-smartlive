@@ -4,7 +4,7 @@ import { setTimeout as wait } from 'node:timers/promises';
 const editions = [
   { id: 'obs-bridge', port: 4176, paths: ['/', '/src/renderer/main.js'], terms: ['Comments', 'Raw', 'Radar'] },
   { id: 'web-console', port: 4173, paths: ['/', '/src/main.js'], terms: ['Load OBS Bridge sample', 'Comments', 'Report'] },
-  { id: 'pc-standalone', port: 4174, paths: ['/', '/src/main.js', '/src/i18n.js'], terms: ['SmartLive PC Standalone', 'Live', 'Prepare', 'Comments', 'Stability', 'Settings', 'Report', 'Open preview', 'End preview', 'Stream key is not saved', 'Validation status', 'Read queued', 'Pinned', 'Done', 'Muted', 'Stability mode ON', 'Settings saved locally', 'Download report.json', 'Download logs.json', 'Download comments.jsonl'] },
+  { id: 'pc-standalone', port: 4174, paths: ['/', '/?review=all', '/src/main.js', '/src/i18n.js'], terms: ['SmartLive PC Standalone', 'Live', 'Prepare', 'Comments', 'Stability', 'Settings', 'Report', 'Open preview', 'End preview', 'Stream key is not saved', 'Validation status', 'Read queued', 'Pinned', 'Done', 'Muted', 'Stability mode ON', 'Settings saved locally', 'Download report.json', 'Download logs.json', 'Download comments.jsonl', 'Review: PC Standalone', '01 Live', '06 Report', 'Export review snapshot'] },
   { id: 'mobile', port: 4175, paths: ['/', '/src/main.js'], terms: ['SmartLive Encoder Mobile', 'コメントセンター', '配信の安定化', '配信レポート', 'Radar'] }
 ];
 
