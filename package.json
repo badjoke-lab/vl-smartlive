@@ -14,6 +14,7 @@
     "release:direct": "node scripts/build-direct-release.mjs",
     "release:direct:zips": "node scripts/build-direct-release-zips.mjs",
     "pc-standalone:syntax-check": "node scripts/check-js-syntax.mjs",
-    "pc-standalone:behavior-check": "node scripts/check-pc-standalone-behavior.mjs"
+    "pc-standalone:behavior-check": "node scripts/check-pc-standalone-behavior.mjs",
+    "android-secret:check": "node scripts/check-android-secret-boundary.mjs"
   }
 }
