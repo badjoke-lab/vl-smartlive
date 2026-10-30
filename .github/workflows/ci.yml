@@ -24,6 +24,7 @@ jobs:
       - run: pnpm run ui-smoke:check
       - run: pnpm run runtime-status:check
       - run: pnpm run obs-readonly:check
+      - run: pnpm run obs-local-save:check
       - run: pnpm run pc-standalone:syntax-check
       - run: node --check apps/obs-bridge/src/renderer/main.js
       - run: node --check apps/mobile/src/main.js
