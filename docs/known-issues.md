@@ -4,6 +4,9 @@ This document lists public user-facing limitations for the current direct-distri
 
 ## General
 
+- As of 2026-10-31, manual checks on physical Windows, OBS and Android devices are **waived for development progression**. CI, protocol emulators, package checks and security checks are required; physical-device behavior is **NOT TESTED**, not certified.
+- Builds may be released as device-unverified previews when CI passes. Passing CI does not prove RTMP ingest, OBS hardware behavior or Android runtime stability.
+
 - Direct bundles require Node.js 20+.
 - Direct bundles are not signed installers or app-store packages.
 - Direct bundles run local browser interfaces from a local Node server.
