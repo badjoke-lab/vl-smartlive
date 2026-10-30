@@ -27,6 +27,8 @@ This document lists public user-facing limitations for the current direct-distri
 - Camera, screen/window, and microphone checks depend on browser permission support.
 - RTMP/RTMPS target validation is local validation only in the browser bundle.
 - The browser bundle does not provide a signed native encoder or store-distributed installer.
+- The separate development transmitter server (`scripts/serve-pc-standalone.mjs`) is not yet wired to the released browser UI. It is not a completed streaming edition.
+- Its local transmitter API requires a loopback Host header; state-changing calls require a matching local Origin. `start` requires JSON, and `chunk` requires octet-stream. Cross-origin pages cannot start or stop the transmitter through this API.
 - Runtime stream key input is not saved.
 
 ## Mobile
