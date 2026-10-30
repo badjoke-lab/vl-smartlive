@@ -539,13 +539,13 @@ async function handleObsRefresh() {
 }
 
 function redactSensitive(value) {
-  return String(value || '').replace(/(password|token)=([^&\\s]+)/gi, '$1=<redacted>').replace(/:\/\/([^:@\\s]+):([^@\\s]+)@/g, '://$1:<redacted>@');
+  return String(value || '').replace(/(password|token)=([^&\s]+)/gi, '$1=<redacted>').replace(/:\/\/([^:@\s]+):([^@\s]+)@/g, '://$1:<redacted>@');
 }
 function pushObsRuntimeLog(message) {
   state.obsRuntimeLogs = state.obsRuntimeLogs || [];
   state.obsRuntimeLogs.unshift(`[${new Date().toISOString()}] ${redactSensitive(message)}`);
   state.obsRuntimeLogs = state.obsRuntimeLogs.slice(0, 40);
-  setText('obsRuntimeLogPanel', state.obsRuntimeLogs.join('\\n'));
+  setText('obsRuntimeLogPanel', state.obsRuntimeLogs.join('\n'));
 }
 function getReadonlyMode() {
   return document.querySelector('#obsReadonlyModeInput')?.value === 'real-readonly' ? 'native-readonly' : 'mock';
