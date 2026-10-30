@@ -439,31 +439,15 @@ function handleObsConnect() {
   setObsState({ connection: "connecting", host, port });
 
   if (state.obsClientMode === "native-readonly") {
-    updateDiagnostics({ connectionState: OBS_FLOW_STATES.CONNECTING, lastAttemptAt: attemptedAt });
-    const runtimeSupport = detectObsRuntimeSupport();
-    if (!runtimeSupport.nativeReadonlyAvailable) {
-      updateDiagnostics({
-        runtimeSupport,
-        connectionState: OBS_FLOW_STATES.UNSUPPORTED_RUNTIME,
-        lastAttemptAt: attemptedAt,
-        lastErrorCode: "unsupported_runtime",
-        lastErrorMessage: "WebSocket is unavailable in this preview runtime.",
-      });
-      setObsState({ connection: "error", streamState: "unknown", currentSceneName: "--" });
-      state.obsClientModeMessage = "Native read-only mode only reads OBS status. WebSocket is unavailable in this preview runtime.";
-      updateObsModeUiCopy();
-      return;
-    }
-
     updateDiagnostics({
-      runtimeSupport,
-      connectionState: OBS_FLOW_STATES.CONNECTED_READONLY,
+      selectedMode: "native-readonly",
+      connectionState: OBS_FLOW_STATES.CONNECTION_FAILED,
       lastAttemptAt: attemptedAt,
-      lastErrorCode: "none",
-      lastErrorMessage: "none",
+      lastErrorCode: "real_obs_client_not_wired",
+      lastErrorMessage: "Real OBS connection is unavailable in this preview build. No WebSocket authentication was attempted."
     });
-    setObsState({ connection: "connected", streamState: "unknown", currentSceneName: "Read-only preview" });
-    state.obsClientModeMessage = "Native read-only connected in preview mode. No control operations are available.";
+    setObsState({ connection: "error", streamState: "unknown", currentSceneName: "--", metrics: { bitrateKbps: null, cpuUsagePercent: null, droppedFrames: null, fps: null } });
+    state.obsClientModeMessage = "Real OBS is NOT connected. Preview build has no live OBS client binding.";
     updateObsModeUiCopy();
     return;
   }
@@ -493,41 +477,14 @@ function handleObsDisconnect() {
 function handleObsRefresh() {
   const attemptedAt = new Date().toISOString();
   if (state.obsClientMode === "native-readonly") {
-    const runtimeSupport = detectObsRuntimeSupport();
-    if (!runtimeSupport.nativeReadonlyAvailable) {
-      updateDiagnostics({
-        runtimeSupport,
-        connectionState: OBS_FLOW_STATES.UNSUPPORTED_RUNTIME,
-        lastAttemptAt: attemptedAt,
-        lastErrorCode: "unsupported_runtime",
-        lastErrorMessage: "WebSocket is unavailable in this preview runtime.",
-      });
-      setObsState({ connection: "error", streamState: "unknown" });
-      return;
-    }
-
-    if (state.obsDiagnostics.connectionState !== OBS_FLOW_STATES.CONNECTED_READONLY) {
-      updateDiagnostics({
-        runtimeSupport,
-        connectionState: state.obsDiagnostics.connectionState === OBS_FLOW_STATES.DISCONNECTED
-          ? OBS_FLOW_STATES.DISCONNECTED
-          : OBS_FLOW_STATES.REQUEST_FAILED,
-        lastAttemptAt: attemptedAt,
-        lastErrorCode: "readonly_refresh_requires_connect",
-        lastErrorMessage: "Connect before refreshing read-only OBS status.",
-      });
-      setObsState({ connection: "disconnected", streamState: "unknown", currentSceneName: "--" });
-      return;
-    }
-
     updateDiagnostics({
-      runtimeSupport,
-      connectionState: OBS_FLOW_STATES.REQUEST_FAILED,
+      selectedMode: "native-readonly",
+      connectionState: OBS_FLOW_STATES.CONNECTION_FAILED,
       lastAttemptAt: attemptedAt,
-      lastErrorCode: "readonly_refresh_preview",
-      lastErrorMessage: "Read-only refresh is not available in current runtime.",
+      lastErrorCode: "real_obs_client_not_wired",
+      lastErrorMessage: "Real OBS refresh is unavailable without an authenticated connection."
     });
-    setObsState({ connection: "error", streamState: "unknown", currentSceneName: "Read-only preview" });
+    setObsState({ connection: "error", streamState: "unknown", currentSceneName: "--" });
     return;
   }
 
@@ -553,32 +510,30 @@ function pushObsRuntimeLog(message) {
   setText('obsRuntimeLogPanel', state.obsRuntimeLogs.join('\n'));
 }
 function getReadonlyMode(){return document.querySelector('#obsReadonlyModeInput')?.value==='real-readonly'?'real-readonly':'mock';}
-function handleReadonlyConnect(kind='connect'){
-  const host=document.querySelector('#obsHostInput')?.value||'127.0.0.1';
-  const port=Number(document.querySelector('#obsPortInput')?.value||4455);
-  const passwordField=document.querySelector('#obsPasswordInput');
-  const password=passwordField?.value||'';
-  const mode=getReadonlyMode();
-  const stateLabel=kind==='retry'?'retrying':'connecting';
-  updateDiagnostics({connectionState: stateLabel,lastAttemptAt:new Date().toISOString(),selectedMode:mode,lastErrorCode:'none',lastErrorMessage:'none'});
-  setText('obsReadonlyStatusValue', stateLabel);
-  pushObsRuntimeLog(`${kind} attempt mode=${mode} url=ws://${host}:${port}`);
-  if (mode==='mock'){
-    setObsState({connection:'connected',host,port,streamState:'live',currentSceneName:'Main',metrics:{droppedFrames:0,cpuUsagePercent:18}});
-    updateDiagnostics({connectionState:'connected',lastSuccessAt:new Date().toISOString()});
-    setText('obsReadonlyStatusValue','connected');
-    pushObsRuntimeLog('successful connection (mock) readonly state refresh');
-  } else if (!password) {
-    updateDiagnostics({connectionState:'error',lastErrorCode:'auth_required',lastErrorMessage:'Password required for real readonly mode.'});
-    setText('obsReadonlyStatusValue','error');
-    pushObsRuntimeLog('error auth_required');
+function handleReadonlyConnect(kind = 'connect') {
+  const host = document.querySelector('#obsHostInput')?.value || '127.0.0.1';
+  const port = Number(document.querySelector('#obsPortInput')?.value || 4455);
+  const passwordField = document.querySelector('#obsPasswordInput');
+  const mode = getReadonlyMode();
+  const attemptedAt = new Date().toISOString();
+  // A password or browser WebSocket API is not evidence that authentication succeeded.
+  if (mode === 'mock') {
+    state.obsClientMode = 'mock';
+    updateDiagnostics({ selectedMode: 'mock', connectionState: OBS_FLOW_STATES.MOCK_READY, lastAttemptAt: attemptedAt, lastErrorCode: 'none', lastErrorMessage: 'none' });
+    setObsState({ connection: 'connected', host, port, streamState: 'live', currentSceneName: 'Main', metrics: { droppedFrames: 0, cpuUsagePercent: 18 } });
+    setText('obsReadonlyStatusValue', 'DEMO: mock connected');
+    state.obsClientModeMessage = 'DEMO: simulated OBS connection; no OBS WebSocket access.';
+    pushObsRuntimeLog(`${kind}: simulated OBS connection (DEMO)`);
   } else {
-    setObsState({connection:'connected',host,port,streamState:'unknown',currentSceneName:'not available',metrics:{droppedFrames:null,skippedFrames:null,cpuUsagePercent:null,fps:null}});
-    updateDiagnostics({connectionState:'connected',lastSuccessAt:new Date().toISOString(),lastErrorCode:'none',lastErrorMessage:'none'});
-    setText('obsReadonlyStatusValue','connected');
-    pushObsRuntimeLog(`successful connection readonly mode url=${redactSensitive(`ws://${host}:${port}`)}`);
+    state.obsClientMode = 'native-readonly';
+    updateDiagnostics({ selectedMode: 'native-readonly', connectionState: OBS_FLOW_STATES.CONNECTION_FAILED, lastAttemptAt: attemptedAt, lastErrorCode: 'real_obs_client_not_wired', lastErrorMessage: 'No actual OBS WebSocket connection in this preview build.' });
+    setObsState({ connection: 'error', streamState: 'unknown', currentSceneName: '--', metrics: { bitrateKbps: null, cpuUsagePercent: null, droppedFrames: null, fps: null } });
+    setText('obsReadonlyStatusValue', 'NOT CONNECTED');
+    state.obsClientModeMessage = 'Real OBS is NOT connected. Live status is unavailable.';
+    pushObsRuntimeLog(`${kind}: real OBS client not wired; no connection claimed`);
   }
-  if (passwordField) passwordField.value='';
+  if (passwordField) passwordField.value = '';
+  updateObsModeUiCopy();
 }
 function currentFilteredComments() {
   return filterComments(state.comments, state.filter, state.search);
