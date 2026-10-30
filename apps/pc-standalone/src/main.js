@@ -7,7 +7,15 @@ if (!app) throw new Error('PC Standalone app root not found.');
 const PERSIST_KEY = 'pcStandaloneSettings';
 let mediaStream = null;
 const state = createInitialState(getLanguage());
-const persisted = sanitizePersistedSettings(JSON.parse(localStorage.getItem(PERSIST_KEY) || '{}'));
+// Remove any legacy saved target URL immediately; a URL path can contain a stream key.
+let storedSettings = {};
+try {
+  storedSettings = JSON.parse(localStorage.getItem(PERSIST_KEY) || '{}');
+} catch {
+  localStorage.removeItem(PERSIST_KEY);
+}
+const persisted = sanitizePersistedSettings(storedSettings);
+localStorage.setItem(PERSIST_KEY, JSON.stringify(persisted));
 Object.assign(state.prepare, persisted);
 Object.assign(state.settings, persisted);
 state.commentMode = state.settings.defaultCommentTab || state.commentMode;

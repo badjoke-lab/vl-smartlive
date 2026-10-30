@@ -339,7 +339,8 @@ class MainActivity : Activity(), ConnectCheckerRtmp {
     }
 
     private fun redactTarget(target: String): String {
-        return target.replace(Regex("(rtmps?://[^/]+/).*"), "$1***")
+        // The path, query and user-info may contain a stream credential.
+        return if (target.isBlank()) "not_configured" else "[redacted]"
     }
 
     private fun refreshCommentsPanel() {
@@ -405,8 +406,8 @@ class MainActivity : Activity(), ConnectCheckerRtmp {
 
     override fun onConnectionFailedRtmp(reason: String) {
         runOnUiThread {
-            val safeTarget = redactTarget(streamTargetInput.text.toString().trim())
-            fail("Connection failed. Check network/target and retry. target=$safeTarget reason=$reason")
+            // Third-party transport errors can echo an entire credential-bearing target.
+            fail("Connection failed. Check network and RTMP target settings, then retry.")
         }
     }
 

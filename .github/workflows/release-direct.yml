@@ -8,8 +8,6 @@ on:
         required: true
         default: v0.1.0-direct
   push:
-    branches:
-      - main
     tags:
       - 'v*-direct'
 
@@ -31,6 +29,8 @@ jobs:
       - run: pnpm run release:direct
       - run: pnpm run direct-release:check
       - run: pnpm run ui-smoke:check
+      - run: pnpm run pc-standalone:behavior-check
+      - run: pnpm run android-secret:check
       - run: pnpm run local-url:check
       - run: pnpm run release:direct:zips
       - name: Resolve tag
