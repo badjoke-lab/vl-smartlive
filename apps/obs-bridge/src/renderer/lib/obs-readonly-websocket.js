@@ -64,7 +64,7 @@ export function createObsReadonlyClient({
     identified = false;
     const reject = rejectHandshake;
     rejectHandshake = null;
-    if (reject) reject(safeError('disconnected'));
+    if (reject) reject('disconnected');
     rejectPending('disconnected');
     if (oldSocket && oldSocket.readyState !== 3) {
       try { oldSocket.close(); } catch { /* already closed */ }
@@ -182,11 +182,12 @@ export function createObsReadonlyClient({
       ws.onclose = (event) => {
         if (myGeneration !== generation) return;
         socket = null;
+        const identifiedBeforeClose = identified;
         identified = false;
         const code = event?.code === 4009 ? 'auth_failed' : 'connection_closed';
         if (!complete) fail(code);
         rejectPending('disconnected');
-        onDisconnected(code);
+        if (complete && identifiedBeforeClose) onDisconnected(code);
       };
     });
 
