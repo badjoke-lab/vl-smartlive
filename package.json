@@ -17,6 +17,7 @@
     "pc-standalone:behavior-check": "node scripts/check-pc-standalone-behavior.mjs",
     "android-secret:check": "node scripts/check-android-secret-boundary.mjs",
     "pc-transmitter:boundary-check": "node scripts/check-pc-transmitter-boundary.mjs",
-    "runtime-status:check": "node scripts/check-runtime-status-boundary.mjs"
+    "runtime-status:check": "node scripts/check-runtime-status-boundary.mjs",
+    "obs-readonly:check": "node scripts/check-obs-readonly-websocket.mjs"
   }
 }

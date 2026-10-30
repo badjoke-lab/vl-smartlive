@@ -13,5 +13,5 @@ export const OBS_FLOW_STATES = Object.freeze({
 export function getRuntimeSupportLabel(runtimeSupport) {
   if (!runtimeSupport.webSocketAvailable) return 'websocket_unavailable';
   if (!runtimeSupport.nativeReadonlyAvailable) return 'native_readonly_unavailable';
-  return 'native_readonly_preview_only';
+  return 'obs_websocket_v5_available';
 }

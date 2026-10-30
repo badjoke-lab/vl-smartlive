@@ -46,13 +46,14 @@ export function createObsUiSummary(state) {
       streamLabel: stream,
       recordingLabel: state.obs.streamState.includes("recording") ? "ON" : "OFF",
       sceneLabel: state.obs.currentSceneName || "--",
+      recordingLabel: state.obs.recordingActive === true ? 'ON' : state.obs.recordingActive === false ? 'OFF' : 'unavailable',
       bitrateLabel: formatObsMetric(metrics.bitrateKbps, (v) => `${v} kbps`),
       cpuLabel: formatObsMetric(metrics.cpuUsagePercent, (v) => `${v}%`),
       droppedLabel: formatObsMetric(metrics.droppedFrames),
       fpsLabel: formatObsMetric(metrics.fps),
       updatedAtLabel: `Last update: ${new Date(state.obs.updatedAt).toLocaleTimeString()}`,
       diagnosticsLabel: getRuntimeSupportLabel(state.obsDiagnostics.runtimeSupport),
-      streamPillTone: "live",
+      streamPillTone: state.obs.streamState === 'live' ? 'live' : '',
       connectionTone: state.obs.connection === "connected" ? "ok" : (state.obs.connection === "error" || state.obs.connection === "disconnected" ? "danger" : "")
     };
   }
@@ -62,7 +63,7 @@ export function createObsUiSummary(state) {
     flowState,
     readOnlyEnabled: true,
     controlEnabled: false,
-    recordingLabel: "disabled",
+    recordingLabel: "unavailable",
     sceneLabel: "--",
     bitrateLabel: METRIC_UNAVAILABLE,
     cpuLabel: METRIC_UNAVAILABLE,
