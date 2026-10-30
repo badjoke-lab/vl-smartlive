@@ -1,15 +1,23 @@
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, relative, isAbsolute, sep } from 'node:path';
 import { checkFfmpeg, getTransmitterStatus, startTransmitter, stopTransmitter, pushMediaChunk } from '../apps/pc-standalone/server/transmitter.mjs';
 
 const root = process.cwd();
 const port = Number(process.env.PORT || 4174);
 const host = '127.0.0.1';
 const maxChunkBytes = 5 * 1024 * 1024;
+const maxStartBytes = 16 * 1024;
+const BODY_TOO_LARGE = Symbol('body-too-large');
+const allowedHosts = new Set([`${host}:${port}`, `localhost:${port}`]);
+const allowedOrigins = new Set([`http://${host}:${port}`, `http://localhost:${port}`]);
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.md': 'text/markdown; charset=utf-8' };
 
 const localOnly = (req) => ['127.0.0.1', '::1'].includes(req.socket.remoteAddress);
+const safeHost = (req) => allowedHosts.has(String(req.headers.host || '').toLowerCase());
+const sameOriginMutation = (req) => allowedOrigins.has(String(req.headers.origin || ''));
+const isJson = (req) => /^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(String(req.headers['content-type'] || ''));
+const isOctetStream = (req) => /^application\/octet-stream(?:\s*;.*)?$/i.test(String(req.headers['content-type'] || ''));
 const json = (res, status, data) => { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(data)); };
 
 function transmitterStatusCode(result) {
@@ -23,7 +31,12 @@ function transmitterStatusCode(result) {
 
 async function readJsonBody(req) {
   const chunks = [];
-  for await (const c of req) chunks.push(c);
+  let bytes = 0;
+  for await (const c of req) {
+    bytes += c.length;
+    if (bytes > maxStartBytes) return BODY_TOO_LARGE;
+    chunks.push(c);
+  }
   const raw = Buffer.concat(chunks).toString('utf8');
   if (!raw) return {};
   try { return JSON.parse(raw); } catch { return null; }
@@ -31,22 +44,27 @@ async function readJsonBody(req) {
 
 createServer(async (req, res) => {
   try {
-    if (!localOnly(req)) return json(res, 403, { ok: false, error: { code: 'localhost_only', message: 'localhost only' } });
+    if (!localOnly(req) || !safeHost(req)) return json(res, 403, { ok: false, error: { code: 'localhost_only', message: 'localhost origin only' } });
     const url = new URL(req.url || '/', `http://${host}:${port}`);
     if (url.pathname.startsWith('/api/transmitter')) {
+      // POST requests are accepted only from the same local UI, not other websites.
+      if (req.method === 'POST' && !sameOriginMutation(req)) return json(res, 403, { ok: false, error: { code: 'cross_origin_blocked', message: 'same-origin request required' } });
       if (url.pathname === '/api/transmitter/status' && req.method === 'GET') return json(res, 200, getTransmitterStatus());
       if (url.pathname === '/api/transmitter/check-ffmpeg' && req.method === 'GET') return json(res, 200, checkFfmpeg());
 
       if (url.pathname === '/api/transmitter/start') {
         if (req.method !== 'POST') return json(res, 405, { ok: false, error: { code: 'method_not_allowed', message: 'POST required' } });
+        if (!isJson(req)) return json(res, 415, { ok: false, error: { code: 'content_type_required', message: 'application/json required' } });
         const payload = await readJsonBody(req);
-        if (!payload) return json(res, 400, { ok: false, error: { code: 'invalid_json', message: 'Request body must be valid JSON.' } });
+        if (payload === BODY_TOO_LARGE) return json(res, 413, { ok: false, error: { code: 'payload_too_large', message: 'request too large' } });
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return json(res, 400, { ok: false, error: { code: 'invalid_json', message: 'Request body must be a JSON object.' } });
         const result = startTransmitter(payload);
         return json(res, transmitterStatusCode(result), result);
       }
 
       if (url.pathname === '/api/transmitter/chunk') {
         if (req.method !== 'POST') return json(res, 405, { ok: false, error: { code: 'method_not_allowed', message: 'POST required' } });
+        if (!isOctetStream(req)) return json(res, 415, { ok: false, error: { code: 'content_type_required', message: 'application/octet-stream required' } });
         const chunks = [];
         let total = 0;
         for await (const c of req) {
@@ -68,7 +86,7 @@ createServer(async (req, res) => {
     }
 
     let pathname = decodeURIComponent(url.pathname); if (pathname === '/') pathname = '/apps/pc-standalone/';
-    let filePath = normalize(join(root, pathname)); if (!filePath.startsWith(root)) { res.writeHead(403); res.end('Forbidden'); return; }
+    let filePath = normalize(join(root, pathname)); const inside = relative(root, filePath); if (inside === '..' || inside.startsWith(`..${sep}`) || isAbsolute(inside)) { res.writeHead(403); res.end('Forbidden'); return; }
     if (existsSync(filePath) && statSync(filePath).isDirectory()) filePath = join(filePath, 'index.html'); if (!existsSync(filePath)) { res.writeHead(404); res.end('Not found'); return; }
     res.writeHead(200, { 'content-type': mime[extname(filePath)] ?? 'text/plain; charset=utf-8' }); res.end(readFileSync(filePath));
   } catch {
