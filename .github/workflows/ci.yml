@@ -22,6 +22,11 @@ jobs:
       - run: pnpm run release:direct
       - run: pnpm run direct-release:check
       - run: pnpm run ui-smoke:check
+      - run: pnpm run runtime-status:check
+      - run: pnpm run pc-standalone:syntax-check
+      - run: node --check apps/obs-bridge/src/renderer/main.js
+      - run: node --check apps/mobile/src/main.js
+      - run: node --check apps/console/src/main.js
       - run: pnpm run pc-standalone:behavior-check
       - run: pnpm run android-secret:check
       - run: pnpm run pc-transmitter:boundary-check
