@@ -1,0 +1,71 @@
+name: OBS Bridge Windows Preview
+
+on:
+  pull_request:
+    paths:
+      - 'apps/obs-bridge/**'
+      - 'scripts/obs-electron-main.cjs'
+      - 'scripts/prepare-obs-electron.mjs'
+      - '.github/workflows/obs-bridge-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Configure pnpm
+        shell: pwsh
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.12.3 --activate
+          pnpm install --lockfile-only
+      - name: Build static OBS edition and prepare Electron
+        shell: pwsh
+        run: |
+          pnpm run release:direct
+          node scripts/prepare-obs-electron.mjs
+          node --check scripts/obs-electron-main.cjs
+          node --check dist/direct-release/obs-bridge/electron-main.cjs
+          if (!(Test-Path dist/direct-release/obs-bridge/apps/obs-bridge/src/renderer/lib/obs-readonly-websocket.js)) { throw 'OBS WebSocket client is absent' }
+      - name: Install standalone free OSS packager
+        shell: pwsh
+        run: |
+          $tools = Join-Path $env:RUNNER_TEMP 'obs-packager'
+          npm install --prefix $tools --no-save --no-audit --no-fund '@electron/packager@20.3.0'
+          $bin = Join-Path $tools 'node_modules/.bin/electron-packager.cmd'
+          if (!(Test-Path $bin)) { throw 'Electron packager binary missing' }
+      - name: Build portable Windows x64 app
+        shell: pwsh
+        run: |
+          $tools = Join-Path $env:RUNNER_TEMP 'obs-packager'
+          $bin = Join-Path $tools 'node_modules/.bin/electron-packager.cmd'
+          & $bin 'dist/direct-release/obs-bridge' 'SmartLive OBS Bridge' --platform=win32 --arch=x64 --electron-version=45.1.0 --out='dist/obs-windows' --overwrite
+          if ($LASTEXITCODE -ne 0) { throw 'Electron packager failed' }
+          $bundle = 'dist/obs-windows/SmartLive OBS Bridge-win32-x64'
+          if (!(Test-Path (Join-Path $bundle 'SmartLive OBS Bridge.exe'))) { throw 'Expected Windows executable missing' }
+          if (!(Test-Path (Join-Path $bundle 'resources/app/apps/obs-bridge/src/renderer/lib/obs-readonly-websocket.js'))) { throw 'OBS client missing from portable executable resources' }
+      - name: Zip and checksum portable app
+        shell: pwsh
+        run: |
+          $bundle = 'dist/obs-windows/SmartLive OBS Bridge-win32-x64'
+          $out = 'dist/obs-windows/SmartLive-OBS-Bridge-win-x64-preview.zip'
+          Compress-Archive -Path (Join-Path $bundle '*') -DestinationPath $out -CompressionLevel Optimal
+          if (!(Test-Path $out)) { throw 'ZIP not produced' }
+          $hash = (Get-FileHash -Algorithm SHA256 $out).Hash.ToLowerInvariant()
+          "$hash  SmartLive-OBS-Bridge-win-x64-preview.zip" | Set-Content -Encoding ascii 'dist/obs-windows/SHA256SUMS.txt'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OBS-Bridge-Windows-x64-development-preview
+          path: |
+            dist/obs-windows/SmartLive-OBS-Bridge-win-x64-preview.zip
+            dist/obs-windows/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
