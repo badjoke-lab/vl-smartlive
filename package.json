@@ -18,6 +18,7 @@
     "android-secret:check": "node scripts/check-android-secret-boundary.mjs",
     "pc-transmitter:boundary-check": "node scripts/check-pc-transmitter-boundary.mjs",
     "runtime-status:check": "node scripts/check-runtime-status-boundary.mjs",
-    "obs-readonly:check": "node scripts/check-obs-readonly-websocket.mjs"
+    "obs-readonly:check": "node scripts/check-obs-readonly-websocket.mjs",
+    "obs-local-save:check": "node scripts/check-obs-local-save.mjs"
   }
 }

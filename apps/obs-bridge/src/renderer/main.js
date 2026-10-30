@@ -8,6 +8,7 @@ import {
 } from "./components/comment-panel.js";
 import { OBS_FLOW_STATES, getRuntimeSupportLabel } from "./lib/obs-diagnostics.js";
 import { createObsReadonlyClient } from "./lib/obs-readonly-websocket.js";
+import { writeSessionSnapshot } from "./lib/session-file-writer.js";
 import { createObsAlertItems, createObsUiSummary } from "./lib/obs-ui-summary.js";
 import { OBS_BRIDGE_SAFE_SETTINGS_DEFAULTS } from "../settings/settings-defaults";
 import { loadObsBridgeSafeSettings, resetObsBridgeSafeSettings, saveObsBridgeSafeSettings } from "../settings/settings-storage";
@@ -258,7 +259,7 @@ let state = {
     },
     localPersistenceExecution: {
       status: "idle",
-      runtimeSupport: "unsupported_runtime",
+      runtimeSupport: typeof globalThis.showDirectoryPicker === "function" ? "supported" : "unsupported_runtime",
       filesWritten: 0,
       resultPreview: "No local persistence execution has run.",
       message: "Local file writing requires a supported desktop runtime.",
@@ -293,7 +294,7 @@ function computeLocalSaveUxSummary() {
   const plannedFiles = [];
   const execution = state.session.localPersistenceExecution;
   const boundary = state.session.localWriteBoundaryPlan;
-  const runtimeSupported = execution.runtimeSupport === "supported";
+  const runtimeSupported = typeof globalThis.showDirectoryPicker === "function";
   if (!state.session.session) {
     return {
       status: "needs_session",
@@ -315,6 +316,12 @@ function computeLocalSaveUxSummary() {
   if (!runtimeSupported) blockingReasons.push("Local file writing requires a supported desktop runtime.");
   if (execution.status === "unsupported_runtime") {
     return { status: "unsupported_runtime", headline: "Local save is blocked in this runtime.", explanation: "Static/browser preview does not provide approved local write APIs.", nextActionLabel: "Run in a supported desktop runtime", blockingReasons, plannedFiles: boundary.plannedFiles, filesWritten: [], filesSkipped: boundary.plannedFiles, runtimeSupport: execution.runtimeSupport, isSaveAllowed: false };
+  }
+  if (execution.status === 'saved') {
+    return { status: 'saved', headline: 'Local files saved and verified.', explanation: 'Read-back verification passed for every session file.', nextActionLabel: 'Save again if the session changes', blockingReasons: [], plannedFiles: boundary.plannedFiles, filesWritten: [], filesSkipped: [], runtimeSupport: 'supported', isSaveAllowed: true };
+  }
+  if (execution.status === 'partial_failure' || execution.status === 'save_failed') {
+    return { status: execution.status, headline: 'Local save incomplete.', explanation: 'One or more files were not verified. Retry after checking the reported failure.', nextActionLabel: 'Retry save', blockingReasons: [], plannedFiles: boundary.plannedFiles, filesWritten: [], filesSkipped: [], runtimeSupport: 'supported', isSaveAllowed: true };
   }
   const isSaveAllowed = boundary.status === "ready" && runtimeSupported;
   return {
@@ -969,11 +976,13 @@ function prepareLocalWriteBoundaryPlan() {
     return;
   }
   const required = [
-    state.session.sessionJsonPlan.preview && state.session.sessionJsonPlan.preview !== "No session.json plan prepared.",
-    state.session.commentsJsonlPlan.preview && state.session.commentsJsonlPlan.preview !== "No comments JSONL plan prepared.",
-    state.session.alertsJsonlPlan.preview && state.session.alertsJsonlPlan.preview !== "No alerts JSONL plan prepared.",
-    state.session.streamStateJsonlPlan.preview && state.session.streamStateJsonlPlan.preview !== "No stream-state JSONL plan prepared.",
-    state.session.reportPlan.reportJsonPreview && state.session.reportPlan.reportMarkdownPreview,
+    state.session.sessionJsonPlan.status === 'prepared' && Boolean(state.session.sessionJsonPlan.content?.trim()),
+    state.session.commentsJsonlPlan.message?.includes('plan prepared'),
+    state.session.alertsJsonlPlan.message?.includes('plan prepared'),
+    state.session.streamStateJsonlPlan.message?.includes('plan prepared'),
+    state.session.reportPlan.reportStatus === 'prepared' &&
+      Boolean(state.session.reportPlan.reportJsonContent?.trim()) &&
+      Boolean(state.session.reportPlan.reportMarkdownContent?.trim())
   ];
   if (required.some((ok) => !ok)) {
     state.session.localWriteBoundaryPlan = {
@@ -984,7 +993,7 @@ function prepareLocalWriteBoundaryPlan() {
     return;
   }
   const ops = [
-    ["writeText", "session.json", state.session.sessionJsonPlan.targetPath, state.session.sessionJsonPlan.preview],
+    ["writeText", "session.json", state.session.sessionJsonPlan.targetPath, state.session.sessionJsonPlan.content],
     ["appendJsonl", "comments.jsonl", state.session.commentsJsonlPlan.targetPath, state.session.commentsJsonlPlan.content],
     ["appendJsonl", "alerts.jsonl", state.session.alertsJsonlPlan.targetPath, state.session.alertsJsonlPlan.content],
     ["appendJsonl", "stream-state.jsonl", state.session.streamStateJsonlPlan.targetPath, state.session.streamStateJsonlPlan.content],
@@ -993,8 +1002,9 @@ function prepareLocalWriteBoundaryPlan() {
   ];
   const validationErrors = [];
   for (const [, file, path, text] of ops) {
-    if (String(path).includes("..") || String(path).startsWith("/")) validationErrors.push(`unsafe path: ${path}`);
-    if (!text || !String(text).trim()) validationErrors.push(`empty payload: ${file}`);
+    const expectedPath = `${state.session.plannedLogDirectory}/${file}`;
+    if (path !== expectedPath) validationErrors.push(`unsafe path: ${file}`);
+    if (typeof text !== 'string' || (!file.endsWith('.jsonl') && !text.trim())) validationErrors.push(`empty payload: ${file}`);
   }
   const queuePreview = [
     `create session directory plan: ${state.session.plannedLogDirectory}`,
@@ -1036,54 +1046,72 @@ function exportOutputFilesInBrowser() {
 }
 
 async function saveLocalLogsIfSupported() {
-  const support = typeof process !== "undefined" && process.versions?.node ? "supported" : "unsupported_runtime";
-  const unsupportedMessage = "Local file writing requires a supported desktop runtime.";
-  if (support !== "supported") {
+  const support = typeof globalThis.showDirectoryPicker === 'function' ? 'supported' : 'unsupported_runtime';
+  if (support !== 'supported') {
     state.session.localPersistenceExecution = {
-      status: "unsupported_runtime",
+      status: 'unsupported_runtime',
       runtimeSupport: support,
       filesWritten: 0,
-      resultPreview: JSON.stringify({ status: "unsupported_runtime", runtimeSupport: support }, null, 2),
-      resultSummary: "unsupported runtime: local save skipped",
-      message: unsupportedMessage,
+      resultPreview: 'No files written.',
+      resultSummary: 'No directory picker is available; use a supported Chromium browser.',
+      message: 'Choose Chrome/Edge with File System Access support, or use Export output files.'
     };
     renderAll();
     return;
   }
-  if (state.session.localWriteBoundaryPlan.status !== "ready") {
+  if (state.session.localWriteBoundaryPlan.status !== 'ready' || !state.session.session) {
     state.session.localPersistenceExecution = {
-      status: "invalid_plan",
+      status: 'invalid_plan',
       runtimeSupport: support,
       filesWritten: 0,
-      resultPreview: JSON.stringify({ status: "invalid_plan", validationErrors: state.session.localWriteBoundaryPlan.validationErrors }, null, 2),
-      resultSummary: `validation errors: ${state.session.localWriteBoundaryPlan.validationErrors.join("; ") || "Prepare local write boundary plan first."}`,
-      message: "Prepare local write boundary plan first.",
+      resultPreview: 'No files written.',
+      resultSummary: 'Prepare and validate all six output plans first.',
+      message: 'Local write boundary is not ready.'
     };
     renderAll();
     return;
   }
-  const failed = state.session.localWriteBoundaryPlan.validationErrors.filter((item) => item.includes("unsafe path"));
-  const skipped = state.session.localWriteBoundaryPlan.validationErrors.filter((item) => item.includes("empty payload"));
-  const filesWritten = Math.max(0, state.session.localWriteBoundaryPlan.plannedFiles.length - failed.length - skipped.length);
-  const status = failed.length || skipped.length ? "partial_failure" : "saved";
-  state.session.localPersistenceExecution = {
-    status,
-    runtimeSupport: support,
-    filesWritten,
-    resultPreview: JSON.stringify({
-      status,
-      outputDirectory: state.session.plannedLogDirectory,
-      filesWritten,
-      filesSkipped: skipped.length,
-      filesFailed: failed.length,
-    }, null, 2),
-    resultSummary: status === "saved"
-      ? `Saved ${filesWritten} files to ${state.session.plannedLogDirectory}.`
-      : `Partial failure: written=${filesWritten}, skipped=${skipped.length}, failed=${failed.length}.`,
-    message: status === "saved"
-      ? `Save succeeded. ${filesWritten} files written to ${state.session.plannedLogDirectory}.`
-      : `Save completed with partial failure. written=${filesWritten}, skipped=${skipped.length}, failed=${failed.length}.`,
+  const files = {
+    'session.json': state.session.sessionJsonPlan.content,
+    'comments.jsonl': state.session.commentsJsonlPlan.content,
+    'alerts.jsonl': state.session.alertsJsonlPlan.content,
+    'stream-state.jsonl': state.session.streamStateJsonlPlan.content,
+    'report.json': state.session.reportPlan.reportJsonContent,
+    'report.md': state.session.reportPlan.reportMarkdownContent
   };
+  state.session.localPersistenceExecution = {
+    status: 'saving', runtimeSupport: support, filesWritten: 0,
+    resultPreview: 'Select a local directory to write logs/sessions/<sessionId>.',
+    message: 'Waiting for filesystem authorization and write confirmation.'
+  };
+  renderAll();
+  try {
+    // This call is initiated directly from the Save button's user gesture.
+    const directoryHandle = await globalThis.showDirectoryPicker({
+      id: 'smartlive-session-logs', mode: 'readwrite'
+    });
+    const result = await writeSessionSnapshot(
+      directoryHandle, state.session.session.sessionId, files
+    );
+    state.session.localPersistenceExecution = {
+      status: result.status, runtimeSupport: support, filesWritten: result.filesWritten,
+      resultPreview: JSON.stringify(result, null, 2),
+      resultSummary: result.status === 'saved'
+        ? `Verified ${result.filesWritten} files in the selected directory (${result.outputDirectory}).`
+        : `Partial save: verified ${result.filesWritten} files, ${result.failedFiles.length} failed.`,
+      message: result.status === 'saved'
+        ? 'Local save succeeded and every file was read back.'
+        : 'Partial failure. Check the failed filenames and retry.'
+    };
+  } catch (error) {
+    const cancelled = error?.name === 'AbortError';
+    state.session.localPersistenceExecution = {
+      status: cancelled ? 'cancelled' : 'save_failed', runtimeSupport: support,
+      filesWritten: 0, resultPreview: cancelled ? 'Folder selection cancelled.' : 'Local save not confirmed.',
+      resultSummary: cancelled ? 'No folder selected; nothing saved.' : 'Save could not be verified. Inspect permissions and retry.',
+      message: cancelled ? 'Save cancelled.' : 'Save failed; no success is claimed.'
+    };
+  }
   renderAll();
 }
 

@@ -30,6 +30,16 @@ Keep the OBS WebSocket password, stream key, OAuth tokens and full private strea
 
 `pnpm run obs-readonly:check` runs an emulated OBS WebSocket v5 protocol test for authentication, read-only requests, disconnect, denial and timeout. It **does not** use a real OBS process or prove the Windows desktop edition works.
 
+## Saving local session files (Chrome / Edge)
+
+1. On the OBS Bridge Logs screen, start a session (the current start/end buttons are still a demo session lifecycle).
+2. Prepare the `session.json`, `comments.jsonl`, `alerts.jsonl`, `stream-state.jsonl` and report plans.
+3. Choose **Prepare local write boundary plan**, then **Save six session files to chosen folder**.
+4. Approve a folder in the browser permission dialog. The browser creates `logs/sessions/<sessionId>/` inside that folder.
+5. The Save status reports **saved** only after all six files are written and their content is read back. For partial errors, only verified files count. Cancelling the folder dialog does not claim success.
+
+Browsers without the File System Access directory picker can still use **Export output files (browser)** to download the prepared files separately. Session data is kept local; the file picker is always triggered by user action. This is a six-file snapshot writer, not yet automatic background logging or crash-proof append/recovery.
+
 ## Current limitations
 
 - Browser/local Node preview still requires Node.js 20+ and is **not** a signed desktop executable.
