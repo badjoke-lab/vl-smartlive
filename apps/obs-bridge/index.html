@@ -53,7 +53,7 @@
               <section>
                 <h2>OBS Actions</h2>
                 <div class="actions vertical">
-                  <button id="obsConnectButton" type="button">Connect mock OBS</button>
+                  <button id="obsConnectButton" type="button">Connect selected OBS mode</button>
                   <button id="obsDisconnectButton" type="button">Disconnect</button>
                   <button id="obsRefreshButton" type="button">Refresh metrics</button>
                 </div>
@@ -74,7 +74,7 @@
                 </div>
                 <div class="metric"><span>Status</span><strong id="obsReadonlyStatusValue">disconnected</strong></div>
                 <pre id="obsRuntimeLogPanel" class="report-preview compact">No runtime logs yet.</pre>
-                <p id="obsSafetyNotice" class="note">DEMO: real OBS status is not connected in this preview. Safety notice: read-only only, no stream/scene/recording control, password runtime-only and never saved.</p>
+                <p id="obsSafetyNotice" class="note">OBS read-only: local WebSocket v5 (127.0.0.1 / localhost) or explicit DEMO. No stream/scene/recording control. Password is runtime-only, never logged or saved.</p>
               </section>
 <section>
                 <h2>OBS Diagnostics</h2>
