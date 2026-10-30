@@ -7,6 +7,7 @@ import {
   renderRawComments,
 } from "./components/comment-panel.js";
 import { OBS_FLOW_STATES, getRuntimeSupportLabel } from "./lib/obs-diagnostics.js";
+import { createObsReadonlyClient } from "./lib/obs-readonly-websocket.js";
 import { createObsAlertItems, createObsUiSummary } from "./lib/obs-ui-summary.js";
 import { OBS_BRIDGE_SAFE_SETTINGS_DEFAULTS } from "../settings/settings-defaults";
 import { loadObsBridgeSafeSettings, resetObsBridgeSafeSettings, saveObsBridgeSafeSettings } from "../settings/settings-storage";
@@ -265,17 +266,18 @@ let state = {
   },
   logsList: { items: [], filteredItems: [], selectedSessionId: null, selectedItem: null, filter: "all", summary: { totalSessions: 0, savedSessions: 0, activeSessions: 0, totalComments: 0, totalAlerts: 0, reportsAvailable: 0 } },
   obs: {
-    connection: "connected",
+    connection: "disconnected",
+    recordingActive: null,
     host: "127.0.0.1",
     port: 4455,
-    streamState: "live",
-    currentSceneName: "Main",
+    streamState: "unknown",
+    currentSceneName: "--",
     metrics: {
-      bitrateKbps: 4500,
-      cpuUsagePercent: 18,
-      droppedFrames: 12,
-      skippedFrames: 0,
-      fps: 30,
+      bitrateKbps: null,
+      cpuUsagePercent: null,
+      droppedFrames: null,
+      skippedFrames: null,
+      fps: null,
     },
     updatedAt: new Date().toISOString(),
   },
@@ -396,145 +398,163 @@ function updateObsModeUiCopy() {
   noteElement.textContent = state.obsClientModeMessage;
 }
 
-function applyObsMode(mode) {
-  const runtimeSupport = detectObsRuntimeSupport();
-  state.obsClientMode = mode === "native-readonly" ? "native-readonly" : "mock";
+let obsConnectionAttempt = 0;
+let obsRefreshTimer = null;
+let obsRefreshBusy = false;
 
-  const modeInput = document.querySelector("#obsClientModeInput");
-  if (modeInput) modeInput.value = state.obsClientMode;
-
-  if (state.obsClientMode === "native-readonly") {
+function stopObsPolling() {
+  if (obsRefreshTimer !== null) clearInterval(obsRefreshTimer);
+  obsRefreshTimer = null;
+}
+const unavailableObsMetrics = () => ({
+  bitrateKbps: null, cpuUsagePercent: null, droppedFrames: null, skippedFrames: null, fps: null
+});
+function disconnectedObsFields(connection = 'disconnected') {
+  return { connection, streamState: 'unknown', recordingActive: null, currentSceneName: '--', metrics: unavailableObsMetrics() };
+}
+const obsClient = createObsReadonlyClient({
+  onDisconnected(code) {
+    stopObsPolling();
+    obsConnectionAttempt++;
+    if (state.obsClientMode !== 'native-readonly') return;
     updateDiagnostics({
-      selectedMode: "native-readonly",
-      runtimeSupport,
-      connectionState: runtimeSupport.nativeReadonlyAvailable
+      connectionState: OBS_FLOW_STATES.DISCONNECTED,
+      lastErrorCode: code,
+      lastErrorMessage: 'OBS WebSocket closed; live metrics are unavailable.'
+    });
+    setObsState(disconnectedObsFields());
+    setText('obsReadonlyStatusValue', 'disconnected');
+    pushObsRuntimeLog('OBS WebSocket disconnected');
+  }
+});
+
+function applyObsMode(mode) {
+  obsConnectionAttempt++;
+  stopObsPolling();
+  obsClient.disconnect();
+  const runtimeSupport = detectObsRuntimeSupport();
+  state.obsClientMode = mode === 'native-readonly' ? 'native-readonly' : 'mock';
+  const modeInput = document.querySelector('#obsClientModeInput');
+  if (modeInput) modeInput.value = state.obsClientMode;
+  const readonlyMode = document.querySelector('#obsReadonlyModeInput');
+  if (readonlyMode) readonlyMode.value = state.obsClientMode === 'native-readonly' ? 'real-readonly' : 'mock';
+  updateDiagnostics({
+    selectedMode: state.obsClientMode,
+    runtimeSupport,
+    connectionState: state.obsClientMode === 'mock'
+      ? OBS_FLOW_STATES.MOCK_READY
+      : runtimeSupport.nativeReadonlyAvailable
         ? OBS_FLOW_STATES.NATIVE_READONLY_SELECTED
         : OBS_FLOW_STATES.UNSUPPORTED_RUNTIME,
-      lastErrorCode: runtimeSupport.nativeReadonlyAvailable ? "none" : OBS_FLOW_STATES.UNSUPPORTED_RUNTIME,
-      lastErrorMessage: runtimeSupport.nativeReadonlyAvailable ? "none" : "WebSocket is unavailable in this preview runtime.",
-    });
-    state.obsClientModeMessage = runtimeSupport.nativeReadonlyAvailable
-      ? "Native read-only mode selected. Connection diagnostics are preview-only in this static preview."
-      : "Native read-only mode unavailable in this runtime: WebSocket is unavailable.";
-  } else {
-    updateDiagnostics({
-      selectedMode: "mock",
-      runtimeSupport,
-      connectionState: OBS_FLOW_STATES.MOCK_READY,
-      lastErrorCode: "none",
-      lastErrorMessage: "none",
-    });
-    state.obsClientModeMessage = "Mode: Mock OBS (default).";
-  }
-
+    lastErrorCode: 'none',
+    lastErrorMessage: 'none'
+  });
+  state.obsClientModeMessage = state.obsClientMode === 'mock'
+    ? 'DEMO: simulated OBS state, no OBS WebSocket connection.'
+    : 'Real read-only OBS mode: connect to local OBS WebSocket v5. No stream controls.';
+  setObsState(disconnectedObsFields());
+  setText('obsReadonlyStatusValue', 'disconnected');
   updateObsModeUiCopy();
-  renderAll();
 }
 
-function handleObsConnect() {
-  const host = document.querySelector("#obsHostInput")?.value || "127.0.0.1";
-  const port = Number(document.querySelector("#obsPortInput")?.value || 4455);
+async function handleObsConnect() {
+  const host = document.querySelector('#obsHostInput')?.value || '127.0.0.1';
+  const port = Number(document.querySelector('#obsPortInput')?.value || 4455);
+  const passwordField = document.querySelector('#obsPasswordInput');
+  const password = passwordField?.value || '';
+  if (passwordField) passwordField.value = '';
+  const attemptId = ++obsConnectionAttempt;
   const attemptedAt = new Date().toISOString();
+  stopObsPolling();
+  obsClient.disconnect();
 
-  setObsState({ connection: "connecting", host, port });
-
-  if (state.obsClientMode === "native-readonly") {
-    updateDiagnostics({
-      selectedMode: "native-readonly",
-      connectionState: OBS_FLOW_STATES.CONNECTION_FAILED,
-      lastAttemptAt: attemptedAt,
-      lastErrorCode: "real_obs_client_not_wired",
-      lastErrorMessage: "Real OBS connection is unavailable in this preview build. No WebSocket authentication was attempted."
-    });
-    setObsState({ connection: "error", streamState: "unknown", currentSceneName: "--", metrics: { bitrateKbps: null, cpuUsagePercent: null, droppedFrames: null, fps: null } });
-    state.obsClientModeMessage = "Real OBS is NOT connected. Preview build has no live OBS client binding.";
-    updateObsModeUiCopy();
+  if (state.obsClientMode === 'mock') {
+    updateDiagnostics({ selectedMode: 'mock', connectionState: OBS_FLOW_STATES.MOCK_READY, lastAttemptAt: attemptedAt, lastErrorCode: 'none', lastErrorMessage: 'none' });
+    setObsState({ ...disconnectedObsFields('connected'), host, port, streamState: 'live', currentSceneName: 'Main', metrics: { ...unavailableObsMetrics(), droppedFrames: 0, cpuUsagePercent: 18 } });
+    setText('obsReadonlyStatusValue', 'DEMO: mock connected');
+    pushObsRuntimeLog('DEMO: mock OBS state only');
     return;
   }
 
-  updateDiagnostics({
-    connectionState: OBS_FLOW_STATES.MOCK_READY,
-    lastAttemptAt: attemptedAt,
-    lastErrorCode: "none",
-    lastErrorMessage: "none",
-  });
-  setObsState({ connection: "connected", host, port, streamState: "live", currentSceneName: "Main" });
-  state.obsClientModeMessage = "Mode: Mock OBS (default).";
-  updateObsModeUiCopy();
+  updateDiagnostics({ selectedMode: 'native-readonly', connectionState: OBS_FLOW_STATES.CONNECTING, lastAttemptAt: attemptedAt, lastErrorCode: 'none', lastErrorMessage: 'none' });
+  setObsState({ ...disconnectedObsFields('connecting'), host, port });
+  setText('obsReadonlyStatusValue', 'connecting');
+  try {
+    const snapshot = await obsClient.connect({ host, port, password });
+    if (attemptId !== obsConnectionAttempt || state.obsClientMode !== 'native-readonly') return;
+    updateDiagnostics({ selectedMode: 'native-readonly', connectionState: OBS_FLOW_STATES.CONNECTED_READONLY, lastSuccessAt: new Date().toISOString(), lastErrorCode: 'none', lastErrorMessage: 'none' });
+    setObsState({ ...snapshot, connection: 'connected', host, port });
+    setText('obsReadonlyStatusValue', 'connected — OBS WebSocket v5');
+    state.obsClientModeMessage = 'OBS WebSocket v5 authenticated. Read-only status requests only.';
+    updateObsModeUiCopy();
+    pushObsRuntimeLog('OBS WebSocket authenticated; read-only state retrieved');
+    obsRefreshTimer = setInterval(() => { if (!obsRefreshBusy && obsClient.isConnected()) void handleObsRefresh(); }, 3000);
+  } catch (error) {
+    if (attemptId !== obsConnectionAttempt || state.obsClientMode !== 'native-readonly') return;
+    const code = error?.code || 'connection_failed';
+    updateDiagnostics({ connectionState: OBS_FLOW_STATES.CONNECTION_FAILED, lastErrorCode: code, lastErrorMessage: 'OBS connection failed. Check local host, port, password, and OBS WebSocket settings.' });
+    setObsState(disconnectedObsFields('error'));
+    setText('obsReadonlyStatusValue', 'NOT CONNECTED');
+    pushObsRuntimeLog(`OBS connection failed (${code})`);
+  }
 }
 
 function handleObsDisconnect() {
-  if (state.obsClientMode === "native-readonly") {
-    updateDiagnostics({ connectionState: OBS_FLOW_STATES.DISCONNECTED, lastErrorCode: "none", lastErrorMessage: "Disconnected from native read-only preview." });
-    setObsState({ connection: "disconnected", streamState: "unknown", currentSceneName: "--" });
-    return;
-  }
-
-  updateDiagnostics({ connectionState: OBS_FLOW_STATES.DISCONNECTED, lastErrorCode: "none", lastErrorMessage: "none" });
-  setObsState({ connection: "disconnected", streamState: "unknown", currentSceneName: "--" });
+  obsConnectionAttempt++;
+  stopObsPolling();
+  obsClient.disconnect();
+  updateDiagnostics({ connectionState: OBS_FLOW_STATES.DISCONNECTED, lastErrorCode: 'none', lastErrorMessage: 'none' });
+  setObsState(disconnectedObsFields());
+  setText('obsReadonlyStatusValue', 'disconnected');
+  pushObsRuntimeLog('OBS disconnected locally');
 }
 
-function handleObsRefresh() {
-  const attemptedAt = new Date().toISOString();
-  if (state.obsClientMode === "native-readonly") {
-    updateDiagnostics({
-      selectedMode: "native-readonly",
-      connectionState: OBS_FLOW_STATES.CONNECTION_FAILED,
-      lastAttemptAt: attemptedAt,
-      lastErrorCode: "real_obs_client_not_wired",
-      lastErrorMessage: "Real OBS refresh is unavailable without an authenticated connection."
-    });
-    setObsState({ connection: "error", streamState: "unknown", currentSceneName: "--" });
+async function handleObsRefresh() {
+  if (state.obsClientMode === 'mock') {
+    setObsState({ metrics: { droppedFrames: (state.obs.metrics.droppedFrames ?? 0) + 1 } });
     return;
   }
-
-  setObsState({
-    metrics: {
-      bitrateKbps: state.obs.metrics.bitrateKbps ?? 4500,
-      cpuUsagePercent: state.obs.metrics.cpuUsagePercent ?? 18,
-      droppedFrames: (state.obs.metrics.droppedFrames ?? 0) + 1,
-      fps: state.obs.metrics.fps ?? 30,
-    },
-  });
+  if (obsRefreshBusy) return;
+  if (!obsClient.isConnected()) {
+    updateDiagnostics({ connectionState: OBS_FLOW_STATES.DISCONNECTED, lastErrorCode: 'not_connected', lastErrorMessage: 'Connect to OBS before refreshing.' });
+    setObsState(disconnectedObsFields());
+    return;
+  }
+  obsRefreshBusy = true;
+  try {
+    const snapshot = await obsClient.refresh();
+    if (state.obsClientMode !== 'native-readonly' || !obsClient.isConnected()) return;
+    updateDiagnostics({ connectionState: OBS_FLOW_STATES.CONNECTED_READONLY, lastErrorCode: 'none', lastErrorMessage: 'none' });
+    setObsState({ ...snapshot, connection: 'connected' });
+  } catch (error) {
+    if (state.obsClientMode !== 'native-readonly') return;
+    updateDiagnostics({ connectionState: OBS_FLOW_STATES.REQUEST_FAILED, lastErrorCode: error?.code || 'request_failed', lastErrorMessage: 'OBS status refresh failed; metrics are unavailable.' });
+    setObsState({ ...disconnectedObsFields('error') });
+    stopObsPolling();
+    obsClient.disconnect();
+    setText('obsReadonlyStatusValue', 'refresh failed');
+  } finally {
+    obsRefreshBusy = false;
+  }
 }
-
-
 
 function redactSensitive(value) {
-  return String(value || '').replace(/(password|token)=([^&\s]+)/gi, '$1=<redacted>').replace(/:\/\/([^:@\s]+):([^@\s]+)@/g, '://$1:<redacted>@');
+  return String(value || '').replace(/(password|token)=([^&\\s]+)/gi, '$1=<redacted>').replace(/:\/\/([^:@\\s]+):([^@\\s]+)@/g, '://$1:<redacted>@');
 }
 function pushObsRuntimeLog(message) {
   state.obsRuntimeLogs = state.obsRuntimeLogs || [];
   state.obsRuntimeLogs.unshift(`[${new Date().toISOString()}] ${redactSensitive(message)}`);
   state.obsRuntimeLogs = state.obsRuntimeLogs.slice(0, 40);
-  setText('obsRuntimeLogPanel', state.obsRuntimeLogs.join('\n'));
+  setText('obsRuntimeLogPanel', state.obsRuntimeLogs.join('\\n'));
 }
-function getReadonlyMode(){return document.querySelector('#obsReadonlyModeInput')?.value==='real-readonly'?'real-readonly':'mock';}
-function handleReadonlyConnect(kind = 'connect') {
-  const host = document.querySelector('#obsHostInput')?.value || '127.0.0.1';
-  const port = Number(document.querySelector('#obsPortInput')?.value || 4455);
-  const passwordField = document.querySelector('#obsPasswordInput');
-  const mode = getReadonlyMode();
-  const attemptedAt = new Date().toISOString();
-  // A password or browser WebSocket API is not evidence that authentication succeeded.
-  if (mode === 'mock') {
-    state.obsClientMode = 'mock';
-    updateDiagnostics({ selectedMode: 'mock', connectionState: OBS_FLOW_STATES.MOCK_READY, lastAttemptAt: attemptedAt, lastErrorCode: 'none', lastErrorMessage: 'none' });
-    setObsState({ connection: 'connected', host, port, streamState: 'live', currentSceneName: 'Main', metrics: { droppedFrames: 0, cpuUsagePercent: 18 } });
-    setText('obsReadonlyStatusValue', 'DEMO: mock connected');
-    state.obsClientModeMessage = 'DEMO: simulated OBS connection; no OBS WebSocket access.';
-    pushObsRuntimeLog(`${kind}: simulated OBS connection (DEMO)`);
-  } else {
-    state.obsClientMode = 'native-readonly';
-    updateDiagnostics({ selectedMode: 'native-readonly', connectionState: OBS_FLOW_STATES.CONNECTION_FAILED, lastAttemptAt: attemptedAt, lastErrorCode: 'real_obs_client_not_wired', lastErrorMessage: 'No actual OBS WebSocket connection in this preview build.' });
-    setObsState({ connection: 'error', streamState: 'unknown', currentSceneName: '--', metrics: { bitrateKbps: null, cpuUsagePercent: null, droppedFrames: null, fps: null } });
-    setText('obsReadonlyStatusValue', 'NOT CONNECTED');
-    state.obsClientModeMessage = 'Real OBS is NOT connected. Live status is unavailable.';
-    pushObsRuntimeLog(`${kind}: real OBS client not wired; no connection claimed`);
-  }
-  if (passwordField) passwordField.value = '';
-  updateObsModeUiCopy();
+function getReadonlyMode() {
+  return document.querySelector('#obsReadonlyModeInput')?.value === 'real-readonly' ? 'native-readonly' : 'mock';
 }
+function handleReadonlyConnect() {
+  applyObsMode(getReadonlyMode());
+  return handleObsConnect();
+}
+
 function currentFilteredComments() {
   return filterComments(state.comments, state.filter, state.search);
 }
@@ -1190,10 +1210,10 @@ document.querySelector("#copySummaryButton").addEventListener("click", async () 
   try { await navigator.clipboard.writeText(text); } catch {}
 });
 document.querySelector("#obsConnectButton").addEventListener("click", handleObsConnect);
-if (document.querySelector('#obsConnectReadonlyButton')) document.querySelector('#obsConnectReadonlyButton').addEventListener('click', ()=>handleReadonlyConnect('connect'));
-if (document.querySelector('#obsDisconnectReadonlyButton')) document.querySelector('#obsDisconnectReadonlyButton').addEventListener('click', ()=>{updateDiagnostics({connectionState:'disconnected',lastErrorCode:'none',lastErrorMessage:'Disconnected'}); setObsState({connection:'disconnected',streamState:'unknown',currentSceneName:'not available'}); setText('obsReadonlyStatusValue','disconnected'); pushObsRuntimeLog('disconnect');});
-if (document.querySelector('#obsRetryReadonlyButton')) document.querySelector('#obsRetryReadonlyButton').addEventListener('click', ()=>handleReadonlyConnect('retry'));
-if (document.querySelector('#obsReadonlyModeInput')) document.querySelector('#obsReadonlyModeInput').addEventListener('change', (e)=>{pushObsRuntimeLog(`mode change ${e.target.value}`); updateDiagnostics({selectedMode:e.target.value});});
+if (document.querySelector('#obsConnectReadonlyButton')) document.querySelector('#obsConnectReadonlyButton').addEventListener('click', ()=>handleReadonlyConnect());
+if (document.querySelector('#obsDisconnectReadonlyButton')) document.querySelector('#obsDisconnectReadonlyButton').addEventListener('click', handleObsDisconnect);
+if (document.querySelector('#obsRetryReadonlyButton')) document.querySelector('#obsRetryReadonlyButton').addEventListener('click', ()=>handleReadonlyConnect());
+if (document.querySelector('#obsReadonlyModeInput')) document.querySelector('#obsReadonlyModeInput').addEventListener('change', (e)=>applyObsMode(e.target.value === 'real-readonly' ? 'native-readonly' : 'mock'));
 document.querySelector("#obsDisconnectButton").addEventListener("click", handleObsDisconnect);
 document.querySelector("#obsRefreshButton").addEventListener("click", handleObsRefresh);
 document.querySelector("#obsClientModeInput").addEventListener("change", (event) => applyObsMode(event.target.value));
