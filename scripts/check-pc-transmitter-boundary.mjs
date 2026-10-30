@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { request as httpRequest } from 'node:http';
 import { createServer } from 'node:net';
 import { setTimeout as wait } from 'node:timers/promises';
 
@@ -38,7 +39,19 @@ try {
   }
   assert.ok(started, `local transmitter server did not become ready: ${stderr}`);
 
-  const maliciousHost = await request('/api/transmitter/status', { headers: { host: 'untrusted.example.test' } });
+  // Use the low-level client; fetch() may normalize/ignore a caller-supplied Host header.
+  const maliciousHost = await new Promise((resolve, reject) => {
+    const req = httpRequest({
+      hostname: '127.0.0.1', port, path: '/api/transmitter/status', method: 'GET',
+      headers: { Host: 'untrusted.example.test' }
+    }, (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += String(chunk); });
+      res.on('end', () => resolve({ status: res.statusCode, data: JSON.parse(body) }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
   assert.equal(maliciousHost.status, 403);
   assert.equal(maliciousHost.data.error.code, 'localhost_only');
 
