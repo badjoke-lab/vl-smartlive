@@ -29,17 +29,22 @@ state.reportMarkdown=files.reportMd||''; setChecklist('report.md',files.reportMd
 try{state.reportJson=normalizeReportJson(parseJsonObject(files.reportJson,'report.json')); setChecklist('report.json','Loaded'); state.sourcesByFile['report.json']=state.reportJson.source;}catch(e){state.parseWarnings.push(`report.json error: ${e.message}`); setChecklist('report.json','Error');}
 renderAll();}
 const sample=(src)=>({session:JSON.stringify({sessionId:`${src}-1`,appEdition:src,source:src,startedAt:'2026-05-20T10:00:00Z',status:'ok',commentsCount:2,alertsCount:1}),comments:'{"timestamp":"10:01","displayName":"A","message":"question?","labels":["question"],"source":"'+src+'"}\n{"timestamp":"10:02","displayName":"B","message":"runtime value hidden","labels":["url_detected"],"held":true,"source":"'+src+'"}',alerts:'{"timestamp":"10:03","type":"audio","severity":"warn","message":"runtime value redacted","source":"'+src+'"}',streamState:'{"timestamp":"10:04","connectionState":"connected","streamState":"live","currentScene":"Main","streamActive":true,"recordingActive":false,"cpuUsage":22,"memoryUsage":44,"source":"'+src+'","appEdition":"'+src+'"}',reportMd:'# report\nruntime endpoint redacted',reportJson:JSON.stringify({source:src,generatedAt:'2026-05-20T10:05:00Z',session:{id:'x'},commentSummary:{},radarGroups:{},alerts:1})});
-byId('loadObsBridgeSampleButton')?.addEventListener('click',()=>{loadSet(sample('obs-bridge'));byId('dataSourceState').textContent='Loaded OBS Bridge sample';});
-byId('loadPcStandaloneSampleButton')?.addEventListener('click',()=>{loadSet(sample('pc-standalone'));byId('dataSourceState').textContent='Loaded PC Standalone sample';});
-byId('loadMobileAndroidSampleButton')?.addEventListener('click',()=>{loadSet(sample('mobile-android'));byId('dataSourceState').textContent='Loaded Mobile Android sample';});
-byId('loadSampleDataButton')?.addEventListener('click',()=>{loadSet(sample('sample'));byId('dataSourceState').textContent='Loaded generic bundled sample';});
+byId('loadObsBridgeSampleButton')?.addEventListener('click',()=>{loadSet(sample('obs-bridge'));byId('dataSourceState').textContent='DEMO: OBS Bridge sample';});
+byId('loadPcStandaloneSampleButton')?.addEventListener('click',()=>{loadSet(sample('pc-standalone'));byId('dataSourceState').textContent='DEMO: PC Standalone sample';});
+byId('loadMobileAndroidSampleButton')?.addEventListener('click',()=>{loadSet(sample('mobile-android'));byId('dataSourceState').textContent='DEMO: Mobile Android sample';});
+byId('loadSampleDataButton')?.addEventListener('click',()=>{loadSet(sample('sample'));byId('dataSourceState').textContent='DEMO: generic bundled sample';});
 document.querySelectorAll('.tab').forEach((t)=>t.addEventListener('click',()=>{state.mode=t.dataset.mode;document.querySelectorAll('.tab').forEach((x)=>x.classList.toggle('active',x===t));renderComments();}));
-function bindSessionLoader() {byId('sessionFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadSet({...sample('unknown'),session:await f.text()});});}
-function bindCommentsLoader() {byId('commentsFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadSet({...sample('unknown'),comments:await f.text()});});}
-function bindAlertsLoader() {byId('alertsFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadSet({...sample('unknown'),alerts:await f.text()});});}
-function bindStreamStateLoader() {byId('streamStateFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadSet({...sample('unknown'),streamState:await f.text()});});}
-function bindReportMarkdownLoader() {byId('reportMarkdownFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadSet({...sample('unknown'),reportMd:await f.text()});});}
-function bindReportJsonLoader() {byId('reportJsonFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadSet({...sample('unknown'),reportJson:await f.text()});});}
+function loadPartialUserFile(changed) {
+  // Each standalone import still uses fixtures for the other sections until W03 is completed.
+  loadSet({ ...sample('unknown'), ...changed });
+  byId('dataSourceState').textContent = 'PARTIAL USER FILE: other sections contain DEMO sample values, not session evidence';
+}
+function bindSessionLoader() {byId('sessionFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadPartialUserFile({ session: await f.text() });});}
+function bindCommentsLoader() {byId('commentsFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadPartialUserFile({ comments: await f.text() });});}
+function bindAlertsLoader() {byId('alertsFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadPartialUserFile({ alerts: await f.text() });});}
+function bindStreamStateLoader() {byId('streamStateFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadPartialUserFile({ streamState: await f.text() });});}
+function bindReportMarkdownLoader() {byId('reportMarkdownFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadPartialUserFile({ reportMd: await f.text() });});}
+function bindReportJsonLoader() {byId('reportJsonFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadPartialUserFile({ reportJson: await f.text() });});}
 bindSessionLoader();
 bindCommentsLoader();
 bindAlertsLoader();
@@ -47,7 +52,7 @@ bindStreamStateLoader();
 bindReportMarkdownLoader();
 bindReportJsonLoader();
 loadSet(sample('obs-bridge'));
-byId('dataSourceState').textContent='Loaded OBS Bridge sample';
+byId('dataSourceState').textContent='DEMO: OBS Bridge sample';
 
 function setMode(mode){ state.mode=mode; renderComments(); }
 function renderRaw(){ setMode("raw"); }

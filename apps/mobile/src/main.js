@@ -40,6 +40,14 @@ function setupInputs() {
   });
 }
 
+// All screens in the browser edition are a visual demo; native Android is separate.
+document.querySelectorAll('.screen').forEach((screen) => {
+  const banner = document.createElement('p');
+  banner.className = 'demo-notice';
+  banner.textContent = 'DEMO — Mobile Web preview. No RTMP streaming or real live chat is connected.';
+  screen.prepend(banner);
+});
+
 renderComments('live-comments', 3);
 renderComments('center-comments', 5);
 setupNavigation();

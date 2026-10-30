@@ -13,7 +13,7 @@ const pcFiles = ['apps/pc-standalone/index.html', 'apps/pc-standalone/src/main.j
 let combined = '';
 for (const f of pcFiles) combined += `\n${read(join(releaseRoot, 'pc-standalone', f))}`;
 
-for (const term of ['SmartLive PC Standalone','Live','Prepare','Comments','Stability','Settings','Report','Open preview','End preview','Stream key is not saved','Validation status','Read queued','Pinned','Done','Muted','Stability mode ON','Settings saved locally','Download report.json','Download logs.json','Download comments.jsonl']) {
+for (const term of ['SmartLive PC Standalone','Live','Prepare','Comments','Stability','Settings','Report','Open preview','End preview','Stream key is not saved','Validation status','Read queued','Pinned','Done','Muted','Encoder not running','Settings saved locally','Download report.json','Download logs.json','Download comments.jsonl']) {
   check(combined.includes(term), `pc-standalone: missing ${term}`);
 }
 for (const term of ['Review all screens','Review: PC Standalone','Copy review summary','Export review snapshot','Back to app','01 Live','02 Prepare','03 Comments','04 Stability','05 Settings','06 Report']) {
