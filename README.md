@@ -22,6 +22,13 @@ VL SmartLive is a local-first live production toolkit built around four editions
    - Provides sample data loading, comments, Raw/Radar, device checks, local RTMP/RTMPS validation, logs, and reports.
    - Includes Android source for local Android build work.
 
+## Active development roadmap (2026-10-30)
+
+The authoritative execution plan for finishing all four editions is **[docs/ROADMAP.md](docs/ROADMAP.md)** (Japanese).
+It supersedes the May 2026 phase schedule for execution tracking while preserving the original scope and zero-budget constraints.
+
+**Current release notice:** the existing `v0.1.0-direct` and `v0.1.0-source` bundles are local browser/preview distributions, **not four completed production streaming applications**. Native OBS Bridge, end-to-end PC streaming, Android APK, and real live-comment integrations require the roadmap's hardware and functional acceptance gates.
+
 ## Requirements
 
 - Node.js 20+
