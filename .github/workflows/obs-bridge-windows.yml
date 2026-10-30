@@ -65,6 +65,12 @@ jobs:
             if (-not ($contents | Select-String -SimpleMatch 'obs-readonly-websocket.js')) { throw 'OBS WebSocket client absent in app.asar' }
             if (-not ($contents | Select-String -SimpleMatch 'electron-main.cjs')) { throw 'Electron main missing from app.asar' }
           }
+      - name: Include user instructions alongside executable
+        shell: pwsh
+        run: |
+          $bundle = 'dist/obs-windows/SmartLive OBS Bridge-win32-x64'
+          Copy-Item 'dist/direct-release/obs-bridge/README_WINDOWS.txt' (Join-Path $bundle 'README_WINDOWS.txt')
+          if (!(Test-Path (Join-Path $bundle 'README_WINDOWS.txt'))) { throw 'Windows setup instructions missing' }
       - name: Zip and checksum portable app
         shell: pwsh
         run: |
