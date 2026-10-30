@@ -51,7 +51,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Electron packager failed' }
           $bundle = 'dist/obs-windows/SmartLive OBS Bridge-win32-x64'
           if (!(Test-Path (Join-Path $bundle 'SmartLive OBS Bridge.exe'))) { throw 'Expected Windows executable missing' }
-          if (!(Test-Path (Join-Path $bundle 'resources/app/apps/obs-bridge/src/renderer/lib/obs-readonly-websocket.js'))) { throw 'OBS client missing from portable executable resources' }
+          $resources = Join-Path $bundle 'resources'
+          $client = Join-Path $resources 'app/apps/obs-bridge/src/renderer/lib/obs-readonly-websocket.js'
+          $asar = Join-Path $resources 'app.asar'
+          Write-Host "Packaged resources:"
+          Get-ChildItem $resources | ForEach-Object { Write-Host $_.Name }
+          if (!(Test-Path $client) -and !(Test-Path $asar)) { throw 'Neither unpacked OBS client nor Electron app.asar exists' }
+          if (Test-Path $asar) {
+            $asarCli = Join-Path $env:RUNNER_TEMP 'obs-packager/node_modules/@electron/asar/bin/asar.js'
+            if (!(Test-Path $asarCli)) { throw 'Cannot inspect Electron app.asar' }
+            $contents = node $asarCli list $asar
+            if ($LASTEXITCODE -ne 0) { throw 'Could not read packaged app.asar' }
+            if (-not ($contents | Select-String -SimpleMatch 'obs-readonly-websocket.js')) { throw 'OBS WebSocket client absent in app.asar' }
+            if (-not ($contents | Select-String -SimpleMatch 'electron-main.cjs')) { throw 'Electron main missing from app.asar' }
+          }
       - name: Zip and checksum portable app
         shell: pwsh
         run: |
