@@ -76,7 +76,7 @@ function renderNormalApp() {
   const topbar = el('header', undefined, 'topbar');
   topbar.append(el('h1', 'SmartLive PC Standalone'));
   const chips = el('div', undefined, 'header-chips');
-  ['Platform: ' + state.prepare.selectedPlatform, 'Stream status: ' + state.preview.status, '00:18:42', 'Preset: ' + state.prepare.selectedPreset].forEach((x) => chips.append(el('span', x, 'chip')));
+  ['DEMO / NO RTMP OUTPUT', 'Platform: ' + state.prepare.selectedPlatform, 'Capture preview: ' + state.preview.status, 'Preset: ' + state.prepare.selectedPreset].forEach((x) => chips.append(el('span', x, 'chip')));
   topbar.append(chips);
   const topActions = el('div', undefined, 'top-actions');
   topActions.append(el('span', 'Language'));
@@ -93,6 +93,7 @@ function renderNormalApp() {
   topActions.append(reviewLink);
   topbar.append(topActions);
   shell.append(topbar);
+  shell.append(el('p', 'DEMO: PC capture preview only. No encoder connection, live broadcast, measured bitrate or viewer count.', 'demo-notice'));
 
   const body = el('div', undefined, 'body');
   const sidebar = el('aside', undefined, 'sidebar');
@@ -107,9 +108,9 @@ function renderNormalApp() {
   });
   sidebar.append(nav);
   const status = el('div', undefined, 'status-card');
-  [['Connection', 'OK'], ['Encoder', state.stability.stabilityMode ? 'Stability mode ON' : 'Stable'], ['Dropped frames', '0.42%'], ['Bitrate', '4.2 Mbps']].forEach(([k, v]) => { const row = el('div', undefined, 'kv'); row.append(el('span', `${k}:`), el('strong', v)); status.append(row); });
+  [['Connection', 'Not connected'], ['Encoder', 'Not running'], ['Dropped frames', 'Unavailable'], ['Bitrate', 'Unavailable']].forEach(([k, v]) => { const row = el('div', undefined, 'kv'); row.append(el('span', `${k}:`), el('strong', v)); status.append(row); });
   sidebar.append(status);
-  const foot = el('div', undefined, 'sidebar-foot'); foot.append(el('span', 'v0.3.x'), el('span', 'Help / Manual')); sidebar.append(foot);
+  const foot = el('div', undefined, 'sidebar-foot'); foot.append(el('span', 'Preview 0.1.0'), el('span', 'Help / Manual')); sidebar.append(foot);
   body.append(sidebar);
 
   const main = el('section', undefined, 'main panel dense');
@@ -118,13 +119,13 @@ function renderNormalApp() {
     const liveShell = el('div', undefined, 'live-shell');
     const left = el('div', undefined, 'dense');
     const preview = el('div', undefined, 'preview-surface');
-    preview.append(el('span', 'PREVIEW', 'badge'), el('span', 'LIVE', 'badge live scene-chip'));
+    preview.append(el('span', 'PREVIEW', 'badge'), el('span', 'DEMO', 'badge scene-chip'));
     preview.append(el('div', 'Scene: Game Main', 'chip scene-chip'));
     preview.append(el('div', `Source: ${state.prepare.selectedSource}`, 'chip'));
     preview.append(el('div', undefined, 'radar'));
     preview.append(el('div', 'Subject / frame placeholder', 'subject'));
-    const hud = el('div', undefined, 'hud-left'); ['Health 92%', 'Stability 98%', 'Latency 43 ms'].forEach((x) => hud.append(el('div', x, 'hud-bar'))); preview.append(hud);
-    const pills = el('div', undefined, 'hud-right'); ['REC', 'NET', 'CAM'].forEach((x) => pills.append(el('span', x, 'pill green'))); preview.append(pills);
+    const hud = el('div', undefined, 'hud-left'); ['Health not measured', 'Stability not measured', 'Latency not measured'].forEach((x) => hud.append(el('div', x, 'hud-bar'))); preview.append(hud);
+    const pills = el('div', undefined, 'hud-right'); ['REC: OFF', 'NET: N/A', 'CAM: PREVIEW'].forEach((x) => pills.append(el('span', x, 'pill green'))); preview.append(pills);
     preview.append(el('p', `Preview state: ${state.preview.status}`));
     if (state.preview.errorMessage) preview.append(el('p', state.preview.errorMessage, 'muted'));
     if (mediaStream?.getVideoTracks?.().length) { const v = el('video'); v.autoplay = true; v.muted = true; v.srcObject = mediaStream; v.style.width = '100%'; preview.append(v); }
@@ -143,10 +144,10 @@ function renderNormalApp() {
     });
     left.append(sources);
     const metrics = el('div', undefined, 'card-grid');
-    [['Audio', '-9.1 dBFS'], ['Upload speed', '12.6 Mbps'], ['Bitrate', '4.2 Mbps'], ['Dropped frames', '0.42%'], ['CPU usage', '41%'], ['GPU usage', '36%'], ['Viewers', '124']].forEach(([k, v]) => { const c = el('div', undefined, 'subcard metric'); c.append(el('span', k), el('strong', v), el('div', undefined, 'spark')); metrics.append(c); });
+    [['Audio', 'Unavailable'], ['Upload speed', 'Unavailable'], ['Bitrate', 'Unavailable'], ['Dropped frames', 'Unavailable'], ['CPU usage', 'Unavailable'], ['GPU usage', 'Unavailable'], ['Viewers', 'Unavailable']].forEach(([k, v]) => { const c = el('div', undefined, 'subcard metric'); c.append(el('span', k), el('strong', v), el('div', undefined, 'spark')); metrics.append(c); });
     left.append(metrics);
     const statusStrip = el('div', undefined, 'status-strip');
-    ['Connected', previewLabel(), state.stability.stabilityMode ? 'Stability mode ON' : 'Encoder stable', 'Auto reconnect ON', 'Radar ON', 'Local rec OFF', '00:18:42', 'Save path: ./recordings/mock.mp4'].forEach((x) => statusStrip.append(el('span', x, 'pill')));
+    ['RTMP not connected', previewLabel(), 'Encoder not running', 'Auto reconnect unavailable', 'Radar DEMO', 'Local rec OFF', 'Stream duration unavailable', 'No recording file'].forEach((x) => statusStrip.append(el('span', x, 'pill')));
     left.append(statusStrip);
 
     const right = el('div', undefined, 'subcard dense');
@@ -267,7 +268,7 @@ function renderNormalApp() {
   if (state.screen === 'Report') {
     main.append(el('h2', 'Report'));
     const summary = el('div', undefined, 'card-grid');
-    [['Stream duration', '00:18:42'], ['Average viewers', '124'], ['Peak viewers', '172'], ['Comments', String(state.comments.length)], ['Questions', '23'], ['Trouble count', '4']].forEach(([k, v]) => { const c = el('div', undefined, 'subcard'); c.append(el('span', k), el('strong', v)); summary.append(c); });
+    [['Stream duration', 'Unavailable'], ['Average viewers', 'Unavailable'], ['Peak viewers', 'Unavailable'], ['Sample comments', String(state.comments.length)], ['Questions', 'DEMO'], ['Trouble count', 'DEMO']].forEach(([k, v]) => { const c = el('div', undefined, 'subcard'); c.append(el('span', k), el('strong', v)); summary.append(c); });
     main.append(summary);
     const charts = el('div', undefined, 'card-grid'); ['Bitrate', 'Dropped frames', 'Cumulative comments', 'Alert count'].forEach((x) => { const c = el('div', undefined, 'subcard'); c.append(el('strong', x), el('div', undefined, 'chart')); charts.append(c); });
     main.append(charts);
