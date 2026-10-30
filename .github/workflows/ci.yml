@@ -24,6 +24,7 @@ jobs:
       - run: pnpm run ui-smoke:check
       - run: pnpm run pc-standalone:behavior-check
       - run: pnpm run android-secret:check
+      - run: pnpm run pc-transmitter:boundary-check
       - run: pnpm run local-url:check
       - run: pnpm run release:direct:zips
       - run: test -f dist/direct-release/obs-bridge/start-macos.command
