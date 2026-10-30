@@ -9,10 +9,14 @@ const mobile = read('apps/mobile/index.html');
 const mobileJs = read('apps/mobile/src/main.js');
 const web = read('apps/console/src/main.js');
 
-assert.match(obs, /real_obs_client_not_wired/);
+assert.match(obs, /createObsReadonlyClient/);
+assert.match(obs, /await obsClient\.connect/);
+assert.match(obs, /await obsClient\.refresh/);
+assert.match(obs, /OBS WebSocket v5 authenticated/);
+assert.doesNotMatch(obs, /real_obs_client_not_wired/);
 assert.doesNotMatch(obs, /setObsState\(\{ connection: "connected", streamState: "unknown", currentSceneName: "Read-only preview" \}\)/);
 assert.doesNotMatch(obs, /successful connection readonly mode/);
-assert.match(obsHtml, /DEMO: real OBS status is not connected/);
+assert.match(obsHtml, /local WebSocket v5/);
 
 assert.match(pc, /DEMO \/ NO RTMP OUTPUT/);
 assert.match(pc, /No encoder connection, live broadcast, measured bitrate or viewer count/);
