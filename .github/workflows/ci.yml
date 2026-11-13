@@ -22,6 +22,7 @@ jobs:
       - run: pnpm run release:direct
       - run: pnpm run direct-release:check
       - run: pnpm run ui-smoke:check
+      - run: node scripts/check-console-import.mjs
       - run: pnpm run runtime-status:check
       - run: pnpm run obs-readonly:check
       - run: pnpm run obs-local-save:check
