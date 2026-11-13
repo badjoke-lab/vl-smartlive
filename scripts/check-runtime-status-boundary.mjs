@@ -23,7 +23,10 @@ assert.match(pc, /No encoder connection, live broadcast, measured bitrate or vie
 assert.doesNotMatch(pc, /\['Connected', previewLabel\(\)/);
 assert.match(mobile, /DEMO — ライブ未接続/);
 assert.match(mobileJs, /No RTMP streaming or real live chat is connected/);
-assert.match(web, /PARTIAL USER FILE: other sections contain DEMO sample values/);
-assert.match(web, /DEMO: OBS Bridge sample/);
+assert.match(web, /USER FILES:/);
+assert.match(web, /No DEMO values inserted/);
+assert.doesNotMatch(web, /PARTIAL USER FILE: other sections contain DEMO sample values/);
+assert.match(web, /DEMO: \$\{label\}/);
+assert.match(web, /loadDemoSource\('obs-bridge', 'OBS Bridge sample'\)/);
 
 console.log('Runtime truth-in-status static guard passed (does not replace device or browser UI tests).');
