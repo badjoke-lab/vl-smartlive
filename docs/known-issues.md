@@ -30,6 +30,7 @@ This document lists public user-facing limitations for the current direct-distri
 - Web Console reads local or bundled files in the supported session/log/report shapes.
 - Files with unsupported shapes may show parse warnings.
 - Mixed source files can produce source compatibility warnings.
+- Sequential standalone user-file imports retain previously loaded real files; absent files remain Pending instead of being replaced by DEMO fixtures. Import state is in-memory only and resets when a sample is loaded or the page is refreshed.
 
 ## PC Standalone
 
