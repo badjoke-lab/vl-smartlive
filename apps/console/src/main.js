@@ -1,3 +1,4 @@
+import { mergeUserFileImports, summarizeUserFileImports } from './file-import-state.js';
 const sampleComments=[];
 const radarOrder=["question","audio_issue","video_issue","danger","highlight","general"];
 const state={mode:"raw",session:null,comments:[],alerts:[],streamState:[],reportMarkdown:"",reportJson:null,parseWarnings:[],sourcesByFile:{}};
@@ -21,23 +22,90 @@ function renderWarnings(){renderList('parseWarningsPanel',state.parseWarnings,(w
 function renderSummary(){const sources=Object.values(state.sourcesByFile).filter(Boolean); const detected=sources[0]||'unknown'; const mixed=[...new Set(sources)].length>1; byId('detectedSource').textContent=detected; byId('mixedSourceWarning').textContent=mixed?'mixed-source warning: loaded files appear to come from different editions.':''; const dl=byId('sourceCompatibilitySummary'); const rows=[["detected appEdition/source",detected],["loaded comments count",state.comments.length],["loaded alerts count",state.alerts.length],["loaded stream-state count",state.streamState.length],["report status",state.reportJson||state.reportMarkdown?"loaded":"missing"],["parse warnings count",state.parseWarnings.length]]; dl.replaceChildren(...rows.flatMap(([k,v])=>{const dt=document.createElement('dt');dt.textContent=k;const dd=document.createElement('dd');dd.textContent=fmt(v);return [dt,dd];}));}
 function renderAll(){renderSummary(); renderWarnings(); const session=byId('sessionSummary'); session.replaceChildren(); if(state.session){for(const [k,v] of Object.entries(state.session)){if(k==='raw')continue; const dt=document.createElement('dt');dt.textContent=k; const dd=document.createElement('dd');dd.textContent=fmt(v); session.append(dt,dd);} } renderComments(); renderList('alertsJsonlList',state.alerts,(a)=>Object.assign(document.createElement('p'),{textContent:`${fmt(a.timestamp)} ${fmt(a.type)} ${fmt(a.severity)} ${fmt(a.message)}`})); renderList('streamStateJsonlList',state.streamState,(s)=>Object.assign(document.createElement('p'),{textContent:`${fmt(s.timestamp)} | ${fmt(s.source)}/${fmt(s.appEdition)} | ${fmt(s.connectionState)||fmt(s.streamState)} | scene:${fmt(s.currentScene)} | active:${fmt(s.streamActive)} rec:${fmt(s.recordingActive)} cpu:${fmt(s.cpuUsage)} mem:${fmt(s.memoryUsage)}`})); byId('reportMarkdownPreview').textContent=redactSecrets(state.reportMarkdown||'No report.md loaded yet.'); const r=byId('reportJsonSummary'); r.replaceChildren(); if(state.reportJson){for(const [k,v] of Object.entries(state.reportJson)){if(k==='raw')continue; const dt=document.createElement('dt');dt.textContent=k; const dd=document.createElement('dd');dd.textContent=fmt(typeof v==='object'?JSON.stringify(v):v); r.append(dt,dd);} }}
 function renderComments(){const list=byId('commentList'); if(state.mode==='raw'){renderList('commentList',state.comments,(c)=>Object.assign(document.createElement('p'),{textContent:`${fmt(c.timestamp)} ${fmt(c.displayName)}: ${fmt(c.message)} [${c.labels.join(',')}]`})); return;} const grouped=Object.fromEntries(radarOrder.map((k)=>[k,[]])); state.comments.forEach((c)=>{const key=c.labels.find((l)=>radarOrder.includes(l))||'general'; grouped[key].push(c);}); list.replaceChildren(...radarOrder.map((k)=>{const sec=document.createElement('section'); const h=document.createElement('h3');h.textContent=`${k} (${grouped[k].length})`; sec.append(h,...grouped[k].map((c)=>Object.assign(document.createElement('p'),{textContent:`${fmt(c.timestamp)} ${fmt(c.displayName)}: ${fmt(c.message)}`}))); return sec;}));}
-function loadSet(files){state.parseWarnings=[]; try{state.session=normalizeSession(parseJsonObject(files.session,'session.json')); setChecklist('session.json','Loaded'); state.sourcesByFile['session.json']=state.session.source;}catch(e){state.parseWarnings.push(`session.json error: ${e.message}`); setChecklist('session.json','Error');}
-try{state.comments=parseCommentsJsonl(files.comments||''); setChecklist('comments.jsonl','Loaded'); state.sourcesByFile['comments.jsonl']=state.comments[0]?.source||'unknown';}catch(e){state.parseWarnings.push(`comments.jsonl error: ${e.message}`); setChecklist('comments.jsonl','Error');}
-try{state.alerts=parseJsonl(files.alerts||'',normalizeAlert,'alerts.jsonl'); setChecklist('alerts.jsonl','Loaded'); state.sourcesByFile['alerts.jsonl']=state.alerts[0]?.source||'unknown';}catch(e){state.parseWarnings.push(`alerts.jsonl error: ${e.message}`); setChecklist('alerts.jsonl','Error');}
-try{state.streamState=parseJsonl(files.streamState||'',normalizeStreamState,'stream-state.jsonl'); setChecklist('stream-state.jsonl','Loaded'); state.sourcesByFile['stream-state.jsonl']=state.streamState[0]?.source||'unknown';}catch(e){state.parseWarnings.push(`stream-state.jsonl error: ${e.message}`); setChecklist('stream-state.jsonl','Error');}
-state.reportMarkdown=files.reportMd||''; setChecklist('report.md',files.reportMd?'Loaded':'Pending');
-try{state.reportJson=normalizeReportJson(parseJsonObject(files.reportJson,'report.json')); setChecklist('report.json','Loaded'); state.sourcesByFile['report.json']=state.reportJson.source;}catch(e){state.parseWarnings.push(`report.json error: ${e.message}`); setChecklist('report.json','Error');}
-renderAll();}
+function loadSet(files) {
+  state.parseWarnings = [];
+  state.sourcesByFile = {};
+  state.session = null;
+  state.comments = [];
+  state.alerts = [];
+  state.streamState = [];
+  state.reportMarkdown = '';
+  state.reportJson = null;
+  const has = (key) => Object.hasOwn(files, key);
+  const noteSource = (name, value) => {
+    if (value && value !== 'unknown') state.sourcesByFile[name] = value;
+  };
+
+  if (has('session')) {
+    try {
+      state.session = normalizeSession(parseJsonObject(files.session, 'session.json'));
+      setChecklist('session.json', 'Loaded');
+      noteSource('session.json', state.session.source);
+    } catch (e) {
+      state.parseWarnings.push(`session.json error: ${e.message}`);
+      setChecklist('session.json', 'Error');
+    }
+  } else {
+    setChecklist('session.json', 'Pending');
+  }
+  for (const [key, name, destination, parser] of [
+    ['comments', 'comments.jsonl', 'comments', parseCommentsJsonl],
+    ['alerts', 'alerts.jsonl', 'alerts', (raw) => parseJsonl(raw, normalizeAlert, 'alerts.jsonl')],
+    ['streamState', 'stream-state.jsonl', 'streamState', (raw) => parseJsonl(raw, normalizeStreamState, 'stream-state.jsonl')]
+  ]) {
+    if (!has(key)) {
+      setChecklist(name, 'Pending');
+      continue;
+    }
+    try {
+      const before = state.parseWarnings.length;
+      state[destination] = parser(files[key]);
+      setChecklist(name, state.parseWarnings.length > before ? 'Loaded with warnings' : 'Loaded');
+      noteSource(name, state[destination][0]?.source);
+    } catch (e) {
+      state.parseWarnings.push(`${name} error: ${e.message}`);
+      setChecklist(name, 'Error');
+    }
+  }
+
+  if (has('reportMd')) {
+    state.reportMarkdown = files.reportMd;
+    setChecklist('report.md', 'Loaded');
+  } else {
+    setChecklist('report.md', 'Pending');
+  }
+  if (has('reportJson')) {
+    try {
+      state.reportJson = normalizeReportJson(parseJsonObject(files.reportJson, 'report.json'));
+      setChecklist('report.json', 'Loaded');
+      noteSource('report.json', state.reportJson.source);
+    } catch (e) {
+      state.parseWarnings.push(`report.json error: ${e.message}`);
+      setChecklist('report.json', 'Error');
+    }
+  } else {
+    setChecklist('report.json', 'Pending');
+  }
+  renderAll();
+}
 const sample=(src)=>({session:JSON.stringify({sessionId:`${src}-1`,appEdition:src,source:src,startedAt:'2026-05-20T10:00:00Z',status:'ok',commentsCount:2,alertsCount:1}),comments:'{"timestamp":"10:01","displayName":"A","message":"question?","labels":["question"],"source":"'+src+'"}\n{"timestamp":"10:02","displayName":"B","message":"runtime value hidden","labels":["url_detected"],"held":true,"source":"'+src+'"}',alerts:'{"timestamp":"10:03","type":"audio","severity":"warn","message":"runtime value redacted","source":"'+src+'"}',streamState:'{"timestamp":"10:04","connectionState":"connected","streamState":"live","currentScene":"Main","streamActive":true,"recordingActive":false,"cpuUsage":22,"memoryUsage":44,"source":"'+src+'","appEdition":"'+src+'"}',reportMd:'# report\nruntime endpoint redacted',reportJson:JSON.stringify({source:src,generatedAt:'2026-05-20T10:05:00Z',session:{id:'x'},commentSummary:{},radarGroups:{},alerts:1})});
-byId('loadObsBridgeSampleButton')?.addEventListener('click',()=>{loadSet(sample('obs-bridge'));byId('dataSourceState').textContent='DEMO: OBS Bridge sample';});
-byId('loadPcStandaloneSampleButton')?.addEventListener('click',()=>{loadSet(sample('pc-standalone'));byId('dataSourceState').textContent='DEMO: PC Standalone sample';});
-byId('loadMobileAndroidSampleButton')?.addEventListener('click',()=>{loadSet(sample('mobile-android'));byId('dataSourceState').textContent='DEMO: Mobile Android sample';});
-byId('loadSampleDataButton')?.addEventListener('click',()=>{loadSet(sample('sample'));byId('dataSourceState').textContent='DEMO: generic bundled sample';});
+let importedUserFiles = {};
+function loadDemoSource(source, label) {
+  importedUserFiles = {};
+  loadSet(sample(source));
+  byId('dataSourceState').textContent = `DEMO: ${label}`;
+}
+byId('loadObsBridgeSampleButton')?.addEventListener('click', () => loadDemoSource('obs-bridge', 'OBS Bridge sample'));
+byId('loadPcStandaloneSampleButton')?.addEventListener('click', () => loadDemoSource('pc-standalone', 'PC Standalone sample'));
+byId('loadMobileAndroidSampleButton')?.addEventListener('click', () => loadDemoSource('mobile-android', 'Mobile Android sample'));
+byId('loadSampleDataButton')?.addEventListener('click', () => loadDemoSource('sample', 'generic bundled sample'));
 document.querySelectorAll('.tab').forEach((t)=>t.addEventListener('click',()=>{state.mode=t.dataset.mode;document.querySelectorAll('.tab').forEach((x)=>x.classList.toggle('active',x===t));renderComments();}));
 function loadPartialUserFile(changed) {
-  // Each standalone import still uses fixtures for the other sections until W03 is completed.
-  loadSet({ ...sample('unknown'), ...changed });
-  byId('dataSourceState').textContent = 'PARTIAL USER FILE: other sections contain DEMO sample values, not session evidence';
+  importedUserFiles = mergeUserFileImports(importedUserFiles, changed);
+  loadSet(importedUserFiles);
+  const { loaded, missing } = summarizeUserFileImports(importedUserFiles);
+  byId('dataSourceState').textContent =
+    `USER FILES: ${loaded.join(', ')}. Pending: ${missing.length ? missing.join(', ') : 'none'}. No DEMO values inserted.`;
 }
 function bindSessionLoader() {byId('sessionFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadPartialUserFile({ session: await f.text() });});}
 function bindCommentsLoader() {byId('commentsFileInput')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; loadPartialUserFile({ comments: await f.text() });});}
