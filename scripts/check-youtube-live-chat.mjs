@@ -44,6 +44,13 @@ const resolved=await resolveActiveYoutubeLiveChat({fetchFn,apiKey,videoUrlOrId:v
 assert.deepEqual(resolved,{videoId,liveChatId:chatId});
 const page=await fetchYoutubeLiveChatPage({fetchFn,apiKey,liveChatId:chatId});
 assert.equal(page.pollingIntervalMillis,5000,'do not poll before API/adapter minimum');
+const providerSlow = async () => ({ok:true,status:200,json:async()=>({
+  pollingIntervalMillis:400000, items:[], nextPageToken:'SLOW'
+})});
+const slowPage=await fetchYoutubeLiveChatPage({fetchFn:providerSlow,apiKey,liveChatId:chatId});
+assert.equal(slowPage.pollingIntervalMillis,400000,
+  'never cap down a provider interval and overpoll YouTube');
+
 assert.equal(page.nextPageToken,'NEXT_PAGE_TOKEN');
 assert.equal(page.items.length,2);
 const raw=normalizeYoutubeLiveComment(page.items[0]);
