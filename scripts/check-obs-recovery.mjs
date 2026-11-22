@@ -88,6 +88,8 @@ const endedSession = JSON.parse(await textOf(folder,'session.json'));
 const endedReport = JSON.parse(await textOf(folder,'report.json'));
 assert.equal(endedSession.status,'ended');
 assert.equal(endedSession.recoveryGapUnmeasured,true);
+assert.equal(endedSession.durationSec, null, 'never treat an unknown recovery gap as streaming duration');
+assert.match(await textOf(folder,'report.md'), /unobserved recording gap: unknown/);
 assert.equal(endedSession.recoveryCount,1);
 assert.deepEqual(endedReport.counters,done.counts);
 assert.equal((await inspectInterruptedSession(root,id)).status,'closed');
