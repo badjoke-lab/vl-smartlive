@@ -364,6 +364,10 @@ report.json / report.md</pre>
                 <button id="exportOutputsButton" type="button">Export output files (browser)</button>
               </div>
               <button id="saveLocalLogsButton" type="button">Save six session files to chosen folder</button>
+              <h4>Incremental session recording (opt-in)</h4>
+              <p class="note">After Start session, select a folder once. OBS state changes and manually added/imported comments are written as JSONL events. End session finalizes reports. This is not real YouTube/Twitch chat and is not crash-proof.</p>
+              <button id="beginIncrementalLogButton" type="button">Choose folder and start incremental recording</button>
+              <p id="continuousLogStatus" class="note" role="status" aria-live="polite">Not recording. Start a session and select a folder.</p>
             </section>
           </div>
         </section>
