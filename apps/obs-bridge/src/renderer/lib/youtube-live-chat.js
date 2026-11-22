@@ -134,3 +134,16 @@ export function normalizeYoutubeLiveComment(item) {
     providerMessageId: id
   };
 }
+
+export function dedupeYoutubeLiveMessages(items, seenIds) {
+  if (!Array.isArray(items) || !(seenIds instanceof Set)) throw new Error('invalid_dedupe_input');
+  const fresh = [];
+  for (const item of items) {
+    if (typeof item?.id !== 'string' || !item.id || seenIds.has(item.id)) continue;
+    seenIds.add(item.id);
+    fresh.push(item);
+    // Bounded in-memory deduplication for long streams.
+    while (seenIds.size > 5000) seenIds.delete(seenIds.values().next().value);
+  }
+  return fresh;
+}
