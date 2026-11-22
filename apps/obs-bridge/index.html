@@ -368,6 +368,17 @@ report.json / report.md</pre>
               <p class="note">After Start session, select a folder once. OBS state changes and manually added/imported comments are written as JSONL events. End session finalizes reports. This is not real YouTube/Twitch chat and is not crash-proof.</p>
               <button id="beginIncrementalLogButton" type="button">Choose folder and start incremental recording</button>
               <p id="continuousLogStatus" class="note" role="status" aria-live="polite">Not recording. Start a session and select a folder.</p>
+              <h4>Interrupted session recovery (manual)</h4>
+              <p class="note">After a browser crash or forced termination, select the original parent folder. Review unfinished sessions before resuming or finalizing. Invalid or incomplete JSONL is never silently discarded. The original termination time is unknown.</p>
+              <button id="inspectInterruptedSessionsButton" type="button">Choose folder and inspect interrupted sessions</button>
+              <label for="recoverySessionSelect">Recoverable session
+                <select id="recoverySessionSelect" aria-label="Recoverable session"></select>
+              </label>
+              <div class="actions">
+                <button id="resumeInterruptedSessionButton" type="button">Resume selected session logging</button>
+                <button id="finalizeInterruptedSessionButton" type="button">Finalize as interrupted (no resume)</button>
+              </div>
+              <pre id="recoveryInspectionSummary" class="report-preview" role="status" aria-live="polite">No folder inspected. No recovery has been attempted.</pre>
             </section>
           </div>
         </section>
