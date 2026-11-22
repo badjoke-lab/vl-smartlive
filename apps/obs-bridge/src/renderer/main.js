@@ -12,6 +12,7 @@ import { writeSessionSnapshot } from "./lib/session-file-writer.js";
 import { startContinuousSessionLogging } from "./lib/continuous-session-logger.js";
 let continuousRecorder = null;
 let continuousSaveError = false;
+let finalizedContinuousSessionId = null;
 import { createObsAlertItems, createObsUiSummary } from "./lib/obs-ui-summary.js";
 import { OBS_BRIDGE_SAFE_SETTINGS_DEFAULTS } from "../settings/settings-defaults";
 import { loadObsBridgeSafeSettings, resetObsBridgeSafeSettings, saveObsBridgeSafeSettings } from "../settings/settings-storage";
@@ -342,6 +343,14 @@ function computeLocalSaveUxSummary() {
 }
 
 function updateDiagnostics(next) {
+  if (continuousRecorder && state.session?.status === 'active' &&
+      next.lastErrorCode && next.lastErrorCode !== 'none') {
+    queueContinuousRecord('alerts.jsonl', {
+      timestamp: new Date().toISOString(), category: 'obs_connection',
+      severity: 'warning', source: 'obs_bridge',
+      errorCode: String(next.lastErrorCode).replace(/[^a-z0-9_-]/gi, '_').slice(0, 64)
+    });
+  }
   state.obsDiagnostics = {
     ...state.obsDiagnostics,
     ...next,
@@ -723,6 +732,7 @@ function startSessionMock() {
     return;
   }
   continuousSaveError = false;
+  finalizedContinuousSessionId = null;
   setText('continuousLogStatus', 'Not recording. Select a folder to enable incremental logging.');
   const startedAt = new Date().toISOString();
   const session = {
@@ -798,6 +808,7 @@ async function endSessionMock() {
     return;
   }
 
+  if (state.session.status === 'ended') return;
   const endedAt = new Date().toISOString();
   const durationSec = Math.max(0, Math.floor((Date.parse(endedAt) - Date.parse(state.session.session.startedAt)) / 1000));
   state.session = {
@@ -812,6 +823,7 @@ async function endSessionMock() {
       setText('continuousLogStatus', 'Finalized six session files; comments=' +
         result.counts.comments + ', OBS states=' + result.counts.streamStates +
         ', alerts=' + result.counts.alerts + '.');
+      finalizedContinuousSessionId = result.sessionId;
       continuousRecorder = null;
     } catch {
       continuousSaveError = true;
@@ -1139,11 +1151,12 @@ async function beginContinuousLogging() {
 }
 
 async function saveLocalLogsIfSupported() {
-  if (continuousRecorder) {
+  if (continuousRecorder ||
+      (finalizedContinuousSessionId && finalizedContinuousSessionId === state.session.session?.sessionId)) {
     state.session.localPersistenceExecution = {
       status: 'blocked_by_incremental_logging', runtimeSupport: 'supported',
       filesWritten: 0, resultPreview: 'Incremental recorder owns this session.',
-      message: 'End the session before writing a manual six-file snapshot.'
+      message: 'Incremental session files are protected against snapshot overwrite.'
     };
     renderAll();
     return;
@@ -1389,13 +1402,25 @@ document.querySelector("#addCommentButton")?.addEventListener("click",()=>{const
     timestamp: new Date().toISOString(), commentId: item.id, text: item.text,
     user: { displayName: item.user }, labels: item.labels, held: item.held,
     sourceType: 'manual', platform: 'local'
+  });
+  if (item.held) queueContinuousRecord('alerts.jsonl', {
+    timestamp: new Date().toISOString(), category: 'held_comment',
+    severity: 'warning', source: 'manual', commentId: item.id,
+    message: 'Manual comment held for review'
   });});
 document.querySelector("#importCommentJsonlButton")?.addEventListener("click",()=>{const text=document.querySelector("#commentJsonlTextarea")?.value||"";const mode=document.querySelector("#commentImportMode")?.value||"append";const errors=[];const parsed=[];text.split(/\n/).forEach((line,i)=>{if(!line.trim())return;try{const o=JSON.parse(line);parsed.push({id:`import_${Date.now()}_${i}`,user:o.author||o.displayName||"import",text:sanitizeSecretText(o.message||""),labels:o.labels||["general"],held:Boolean(o.held)});}catch{errors.push(`line ${i+1}`);}});if(mode==="replace") state.comments=[];state.comments=state.comments.concat(parsed);
-  for (const item of parsed) queueContinuousRecord('comments.jsonl', {
-    timestamp: new Date().toISOString(), commentId: item.id, text: item.text,
-    user: { displayName: item.user }, labels: item.labels, held: Boolean(item.held),
-    sourceType: 'imported_jsonl', platform: 'local'
-  });
+  for (const item of parsed) {
+    queueContinuousRecord('comments.jsonl', {
+      timestamp: new Date().toISOString(), commentId: item.id, text: item.text,
+      user: { displayName: item.user }, labels: item.labels, held: Boolean(item.held),
+      sourceType: 'imported_jsonl', platform: 'local'
+    });
+    if (item.held) queueContinuousRecord('alerts.jsonl', {
+      timestamp: new Date().toISOString(), category: 'held_comment',
+      severity: 'warning', source: 'imported_jsonl',
+      commentId: item.id, message: 'Imported comment held for review'
+    });
+  }
   setText("commentImportErrors",errors.length?`Import errors: ${errors.join(", ")}`:"Import completed.");pushObsRuntimeLog(errors.length?`import errors ${errors.length}`:"import success");renderAll();});
 document.querySelector("#commentJsonlFileInput")?.addEventListener("change",async (e)=>{const f=e.target.files?.[0]; if(!f) return; document.querySelector("#commentJsonlTextarea").value=await f.text();});
 document.querySelector("#generateOutputsButton")?.addEventListener("click",generateOutputs);["session","comments","alerts","streamState","reportMd","reportJson"].forEach((k)=>document.querySelector(`#download${k.charAt(0).toUpperCase()+k.slice(1)}JsonButton`));
