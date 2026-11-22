@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { startContinuousSessionLogging } from '../apps/obs-bridge/src/renderer/lib/continuous-session-logger.js';
 
 class MemoryFile {
@@ -59,9 +60,10 @@ const results = await Promise.all([
   recorder.record('stream-state.jsonl', { source: 'obs-websocket-v5', sceneName: 'Start' }),
   recorder.record('comments.jsonl', { text: 'こんにちは', held: true, token: 'secret-goes-here', sourceType: 'manual' }),
   recorder.record('comments.jsonl', { text: 'password=abc rtmps://server/app/private-key', held: false, sourceType: 'imported' }),
-  recorder.record('stream-state.jsonl', { source: 'obs-websocket-v5', sceneName: 'Next scene' })
+  recorder.record('stream-state.jsonl', { source: 'obs-websocket-v5', sceneName: 'Next scene' }),
+  recorder.record('alerts.jsonl', { category: 'held_comment', severity: 'warning' })
 ]);
-assert.equal(results.length, 4);
+assert.equal(results.length, 5);
 const comments = (await (await folder.files.get('comments.jsonl').getFile()).text()).trim().split('\n').map(JSON.parse);
 assert.equal(comments.length, 2);
 assert.equal(comments[0].text, 'こんにちは');
@@ -70,11 +72,11 @@ assert.equal(comments[0].held, true);
 assert.doesNotMatch(JSON.stringify(comments), /private-key|secret-goes-here|password=abc/);
 const states = (await (await folder.files.get('stream-state.jsonl').getFile()).text()).trim().split('\n').map(JSON.parse);
 assert.deepEqual(states.map(x => x.sceneName), ['Start', 'Next scene']);
-assert.deepEqual(recorder.counts, { comments: 2, alerts: 0, streamStates: 2, held: 1 });
+assert.deepEqual(recorder.counts, { comments: 2, alerts: 1, streamStates: 2, held: 1 });
 await assert.rejects(() => recorder.record('session.json', { fake: true }), /unsupported_log_file/);
 const result = await recorder.finish('2026-11-23T02:21:00.000Z');
 assert.equal(result.filesWritten, 6);
-assert.deepEqual(result.counts, { comments: 2, alerts: 0, streamStates: 2, held: 1 });
+assert.deepEqual(result.counts, { comments: 2, alerts: 1, streamStates: 2, held: 1 });
 const storedSession = JSON.parse(await (await folder.files.get('session.json').getFile()).text());
 const report = JSON.parse(await (await folder.files.get('report.json').getFile()).text());
 assert.equal(storedSession.status, 'ended');
@@ -96,5 +98,16 @@ await assert.rejects(() => failed.finish(), /disk_full/);
 assert.equal(await (await failedFolder.files.get('comments.jsonl').getFile()).text(), '');
 assert.match(await (await failedFolder.files.get('report.json').getFile()).text(), /in_progress/);
 assert.equal(failed.counts.comments, 0);
+
+const ui = readFileSync('apps/obs-bridge/src/renderer/main.js', 'utf8');
+const html = readFileSync('apps/obs-bridge/index.html', 'utf8');
+assert.match(html, /beginIncrementalLogButton/);
+assert.match(ui, /startContinuousSessionLogging/);
+assert.match(ui, /localWriteBoundaryPlan: \\{/);
+assert.match(ui, /localPersistenceExecution: \\{/);
+assert.match(ui, /finalizedContinuousSessionId/);
+assert.match(ui, /sourceType: 'imported_jsonl'/);
+assert.match(ui, /category: 'held_comment'/);
+assert.match(ui, /category: 'obs_connection'/);
 
 console.log('OBS incremental logging: six files, ordered UTF-8 appends, redaction, committed counters, errors and collision protection passed.');
