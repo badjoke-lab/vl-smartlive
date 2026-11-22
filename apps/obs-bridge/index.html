@@ -168,6 +168,21 @@
               <div id="commentList" class="comment-list" aria-live="polite"></div>
 
               
+              <section class="comment-input-panel" aria-label="YouTube Live public chat">
+                <h3>YouTube Live — real public chat (read only)</h3>
+                <p class="note">Optional: enter your own YouTube Data API v3 key and a currently live public video. The key is used in a request header, held only in page memory and forgotten at disconnect. API quota is consumed by polling.</p>
+                <label for="youtubeVideoInput">Live video URL or ID
+                  <input id="youtubeVideoInput" type="text" placeholder="https://www.youtube.com/watch?v=..." spellcheck="false" autocomplete="off" />
+                </label>
+                <label for="youtubeApiKeyInput">Runtime-only YouTube API key
+                  <input id="youtubeApiKeyInput" type="password" placeholder="API key is not saved" spellcheck="false" autocomplete="off" />
+                </label>
+                <div class="actions">
+                  <button id="youtubeConnectButton" type="button">Connect public live chat</button>
+                  <button id="youtubeDisconnectButton" type="button">Disconnect and forget API key</button>
+                </div>
+                <p id="youtubeLiveStatus" role="status" aria-live="polite" class="note">NOT CONNECTED: DEMO comments remain until the YouTube API returns successfully.</p>
+              </section>
               <section class="comment-input-panel">
                 <h3>Comment input/import</h3>
                 <label>Author / display name<input id="commentAuthorInput" type="text" /></label>

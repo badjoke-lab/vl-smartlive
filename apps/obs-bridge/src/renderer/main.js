@@ -8,6 +8,10 @@ import {
 } from "./components/comment-panel.js";
 import { OBS_FLOW_STATES, getRuntimeSupportLabel } from "./lib/obs-diagnostics.js";
 import { createObsReadonlyClient } from "./lib/obs-readonly-websocket.js";
+import {
+  resolveActiveYoutubeLiveChat, fetchYoutubeLiveChatPage, normalizeYoutubeLiveComment,
+  dedupeYoutubeLiveMessages
+} from "./lib/youtube-live-chat.js";
 import { writeSessionSnapshot } from "./lib/session-file-writer.js";
 import { startContinuousSessionLogging } from "./lib/continuous-session-logger.js";
 import {
@@ -1469,6 +1473,8 @@ document.querySelector("#obsTestConnectionButton").addEventListener("click", () 
 document.querySelector("#startSessionButton").addEventListener("click", () => startSessionMock());
 document.querySelector("#endSessionButton").addEventListener("click", endSessionMock);
 document.querySelector("#beginIncrementalLogButton")?.addEventListener("click", beginContinuousLogging);
+document.querySelector("#youtubeConnectButton")?.addEventListener("click", connectYoutubeLive);
+document.querySelector("#youtubeDisconnectButton")?.addEventListener("click", () => disconnectYoutubeLive());
 document.querySelector("#inspectInterruptedSessionsButton")?.addEventListener("click", inspectRecoveryFolder);
 document.querySelector("#resumeInterruptedSessionButton")?.addEventListener("click", resumeSelectedRecovery);
 document.querySelector("#finalizeInterruptedSessionButton")?.addEventListener("click", finalizeSelectedRecovery);
@@ -1491,7 +1497,7 @@ document.querySelector("#logsListItems")?.addEventListener("click", (event) => {
 
 function sanitizeSecretText(value = "") { return String(value).replace(/(secret|token|key)=([^\s]+)/gi, "$1=[redacted]").replace(/wss?:\/\/[^\s]+/gi, "[url-redacted]"); }
 function buildSessionOutput(){const now=new Date().toISOString();const obs=state.obs||{};return {sessionId:state.session.session?.sessionId||createSessionId(),appEdition:"obs-bridge",createdAt:state.session.session?.startedAt||now,mode:state.obsClientMode==="native-readonly"?"native-readonly":"mock",obsConnectionState:state.obs.connection||"disconnected",currentScene:obs.currentSceneName||null,streamActive:obs.streamState==="live",recordingActive:false,commentsCount:state.comments.length,alertsCount:buildAlertsOutput().length,reportGeneratedAt:now};}
-function buildCommentsOutput(){return state.comments.map((c)=>({timestamp:new Date().toISOString(),author:c.user||"unknown",displayName:c.user||"unknown",message:sanitizeSecretText(c.text||""),labels:c.labels||["general"],held:Boolean(c.held),source:"obs-bridge"}));}
+function buildCommentsOutput(){return state.comments.map((c)=>({timestamp:c.timestamp||new Date().toISOString(),timestampVerified:Boolean(c.timestamp),author:c.user||"unknown",displayName:c.user||"unknown",message:sanitizeSecretText(c.text||""),labels:c.labels||["general"],held:Boolean(c.held),source:"obs-bridge",sourceType:c.sourceType||"local_or_demo",provider:c.platform||"local",providerMessageId:c.providerMessageId||null}));}
 function buildAlertsOutput(){const out=[];for(const c of buildCommentsOutput()){const labs=new Set(c.labels||[]);if(c.held||labs.has("danger")||labs.has("url_detected")||labs.has("audio_issue")||labs.has("video_issue")){out.push({timestamp:c.timestamp,type:[...labs][0]||"held",severity:(c.held||labs.has("danger"))?"high":"medium",message:c.message,source:"obs-bridge"});}} if(state.obsDiagnostics.lastErrorCode&&state.obsDiagnostics.lastErrorCode!=="none"){out.push({timestamp:new Date().toISOString(),type:"connection_error",severity:"high",message:sanitizeSecretText(state.obsDiagnostics.lastErrorMessage||"connection error"),source:"obs-bridge"});} return out;}
 function buildStreamStateOutput(){return [{timestamp:new Date().toISOString(),mode:state.obsClientMode==="native-readonly"?"native-readonly":"mock",connectionState:state.obs.connection||"disconnected",currentScene:state.obs.currentSceneName||null,streamActive:state.obs.streamState==="live",recordingActive:false,droppedFrames:state.obs.metrics?.droppedFrames,cpuUsage:state.obs.metrics?.cpuUsagePercent,memoryUsage:state.obs.metrics?.memoryUsage,source:"obs-bridge"}];}
 function buildRadarGroupsOutput(){const groups={question:[],audio_issue:[],video_issue:[],danger:[],highlight:[],general:[]};for(const c of buildCommentsOutput()){const labs=new Set(c.labels||[]);if(c.held||labs.has("danger")||labs.has("url_detected"))groups.danger.push(c); else if(labs.has("question"))groups.question.push(c); else if(labs.has("audio_issue"))groups.audio_issue.push(c); else if(labs.has("video_issue"))groups.video_issue.push(c); else if(labs.has("highlight"))groups.highlight.push(c); else groups.general.push(c);} return groups;}
@@ -1500,6 +1506,112 @@ function downloadOutputFile(name){if(!state.generatedOutputs||!state.generatedOu
 
 applyObsMode(state.obsClientMode);
 renderAll();
+
+// Read-only YouTube public-live-chat connection. The API key is memory-only.
+let youtubeLiveSession = null;
+let youtubePollGeneration = 0;
+let youtubePollingIntervalMillis = null;
+const youtubeApiErrors = new Set([
+  'invalid_youtube_video_url', 'invalid_runtime_api_key', 'invalid_live_chat_id',
+  'invalid_youtube_request', 'api_authorization_required', 'api_denied_or_quota_exhausted',
+  'youtube_resource_not_found', 'api_rate_limited', 'youtube_api_unavailable',
+  'invalid_youtube_api_response', 'youtube_network_or_cors_error',
+  'active_public_live_chat_not_found', 'fetch_unavailable'
+]);
+function setYoutubeLiveStatus(value) {
+  setText('youtubeLiveStatus', value);
+}
+function disconnectYoutubeLive(reason = 'Disconnected (no live API access).') {
+  const old = youtubeLiveSession;
+  youtubePollGeneration += 1;
+  if (old?.timer) clearTimeout(old.timer);
+  try { old?.abort?.abort(); } catch {}
+  youtubeLiveSession = null; // release API key without storing it
+  youtubePollingIntervalMillis = null;
+  setYoutubeLiveStatus(reason);
+}
+async function pollYoutubeLive(generation) {
+  const current = youtubeLiveSession;
+  if (!current || youtubePollGeneration !== generation) return;
+  try {
+    const page = await fetchYoutubeLiveChatPage({
+      apiKey: current.apiKey, liveChatId: current.liveChatId,
+      pageToken: current.nextPageToken, signal: current.abort.signal
+    });
+    if (youtubePollGeneration !== generation || youtubeLiveSession !== current) return;
+    // A successful provider response is required before replacing DEMO fixtures.
+    if (!current.verified) {
+      const mockIds = new Set(initialComments.map((comment) => comment.id));
+      state.comments = state.comments.filter((comment) => !mockIds.has(comment.id));
+      current.verified = true;
+    }
+    current.nextPageToken = page.nextPageToken;
+    for (const item of dedupeYoutubeLiveMessages(page.items, current.seenIds)) {
+      const comment = normalizeYoutubeLiveComment(item);
+      if (!comment) continue;
+      state.comments.push(comment);
+      queueContinuousRecord('comments.jsonl', {
+        timestamp: comment.timestamp || new Date().toISOString(),
+        publishedAtVerified: Boolean(comment.timestamp),
+        commentId: comment.providerMessageId,
+        text: comment.text,
+        user: { displayName: comment.user },
+        labels: comment.labels, held: comment.held,
+        holdReason: comment.holdReason || undefined,
+        sourceType: 'youtube_live_api', platform: 'youtube',
+        providerMessageId: comment.providerMessageId
+      });
+      if (comment.held) queueContinuousRecord('alerts.jsonl', {
+        timestamp: new Date().toISOString(),
+        category: 'held_live_comment', severity: 'warning',
+        source: 'youtube_live_api', commentId: comment.providerMessageId,
+        message: 'Live comment held for manual review'
+      });
+    }
+    renderAll();
+    if (page.offlineAt) {
+      disconnectYoutubeLive('YouTube API: live chat ended. Received messages remain visible.');
+      return;
+    }
+    youtubePollingIntervalMillis = page.pollingIntervalMillis;
+    setYoutubeLiveStatus('REAL YouTube public live chat connected. Next poll in ' +
+      Math.ceil(youtubePollingIntervalMillis / 1000) +
+      's. New comments enter Raw/Radar; API key remains only in memory.');
+    current.timer = setTimeout(() => { void pollYoutubeLive(generation); },
+      youtubePollingIntervalMillis);
+  } catch (error) {
+    if (youtubePollGeneration !== generation || youtubeLiveSession !== current) return;
+    const code = youtubeApiErrors.has(error?.message) ? error.message : 'unknown_provider_failure';
+    disconnectYoutubeLive('YouTube NOT CONNECTED: ' + code +
+      '. Re-enter the API key and try again; no auto-retry.');
+  }
+}
+async function connectYoutubeLive() {
+  const apiKeyField = document.querySelector('#youtubeApiKeyInput');
+  const apiKey = String(apiKeyField?.value || '').trim();
+  if (apiKeyField) apiKeyField.value = ''; // never persist/display key after connect
+  const video = document.querySelector('#youtubeVideoInput')?.value || '';
+  disconnectYoutubeLive('Connecting to YouTube API...');
+  const generation = youtubePollGeneration;
+  const current = {
+    apiKey, video, liveChatId: null, nextPageToken: null, timer: null,
+    abort: new AbortController(), seenIds: new Set(), verified: false
+  };
+  youtubeLiveSession = current;
+  setYoutubeLiveStatus('CONNECTING: resolving public live chat ID (not connected yet).');
+  try {
+    const resolved = await resolveActiveYoutubeLiveChat({
+      apiKey, videoUrlOrId: video, signal: current.abort.signal
+    });
+    if (youtubePollGeneration !== generation || youtubeLiveSession !== current) return;
+    current.liveChatId = resolved.liveChatId;
+    await pollYoutubeLive(generation);
+  } catch (error) {
+    if (youtubePollGeneration !== generation || youtubeLiveSession !== current) return;
+    const code = youtubeApiErrors.has(error?.message) ? error.message : 'unknown_provider_failure';
+    disconnectYoutubeLive('YouTube NOT CONNECTED: ' + code + '. No real chat displayed.');
+  }
+}
 
 // readonly normalized fields: mode connected currentScene streamActive recordingActive droppedFrames outputSkippedFrames cpuUsage memoryUsage lastError lastUpdatedAt
 
