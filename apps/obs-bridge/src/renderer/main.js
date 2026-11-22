@@ -741,6 +741,18 @@ function startSessionMock() {
     status: "active",
     session,
     plannedLogDirectory: plan.directory,
+    // Reset per-session execution state. Without these, renderSessionState dereferences undefined.
+    localWriteBoundaryPlan: {
+      status: 'blocked', operationCount: 0, plannedFiles: [],
+      validationErrors: ['Prepare output plans for this session.'],
+      queuePreview: [], message: 'No local write plan prepared.'
+    },
+    localPersistenceExecution: {
+      status: 'idle',
+      runtimeSupport: typeof globalThis.showDirectoryPicker === 'function' ? 'supported' : 'unsupported_runtime',
+      filesWritten: 0, resultPreview: 'No files written.', resultSummary: '',
+      message: 'No local persistence operation completed for this session.'
+    },
     sessionJsonPlan: {
       targetPath: plan.files.session,
       status: "ready",
