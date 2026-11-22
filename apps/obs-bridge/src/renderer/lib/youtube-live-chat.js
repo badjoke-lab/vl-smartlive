@@ -40,11 +40,12 @@ function apiError(status) {
 }
 async function requestJson(fetchFn, url, apiKey, signal) {
   if (typeof fetchFn !== 'function') throw new Error('fetch_unavailable');
+  const checkedKey = requireRuntimeKey(apiKey);
   let response;
   try {
     response = await fetchFn(url, {
       method: 'GET',
-      headers: { 'x-goog-api-key': requireRuntimeKey(apiKey), accept: 'application/json' },
+      headers: { 'x-goog-api-key': checkedKey, accept: 'application/json' },
       cache: 'no-store', referrerPolicy: 'no-referrer', signal
     });
   } catch (error) {
