@@ -146,7 +146,9 @@ function makeContinuousSessionRecorder(handles, session, counts) {
     finishing = true;
     await tail;
     if (fatalError) throw fatalError;
-    const durationSec = Math.max(0, Math.floor((Date.parse(endedAt) - Date.parse(session.startedAt)) / 1000));
+    // Wall-clock time across a recovery gap is NOT verified streaming duration.
+    const durationSec = session.recoveryGapUnmeasured ? null
+      : Math.max(0, Math.floor((Date.parse(endedAt) - Date.parse(session.startedAt)) / 1000));
     const finalSession = { ...session, endedAt, durationSec, status: 'ended', counters: { ...counts } };
     // A report is derived from committed event counts, never from sample UI totals.
     const report = {
@@ -167,7 +169,12 @@ function makeContinuousSessionRecorder(handles, session, counts) {
       '- alerts recorded: ' + counts.alerts,
       '- OBS states recorded: ' + counts.streamStates,
       '- held comments: ' + counts.held,
-      '- device verification: NOT TESTED', '',
+      '- device verification: NOT TESTED',
+      ...(session.recoveryGapUnmeasured ? [
+        '- interrupted/recovered: yes',
+        '- unobserved recording gap: unknown',
+        '- verified streaming duration: unavailable'
+      ] : []), '',
       'Comments may be manually entered/imported. This does not claim real chat API integration.',
       ''
     ].join('\n');
