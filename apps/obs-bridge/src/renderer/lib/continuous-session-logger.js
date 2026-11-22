@@ -97,6 +97,23 @@ export async function startContinuousSessionLogging(directoryHandle, sessionInpu
   await writeFileVerified(handles['report.json'], jsonText({ sessionId, status: 'in_progress' }) + '\n');
   await writeFileVerified(handles['report.md'], '# OBS Bridge session\n\nRecording in progress.\n');
 
+  return makeContinuousSessionRecorder(handles, session, counts);
+}
+
+export function resumeVerifiedContinuousSession({ handles, session, counts }) {
+  if (!SESSION_ID_RE.test(String(session?.sessionId || ''))) throw new Error('invalid_session_id');
+  if (!handles || OUTPUT_FILES.some((name) => typeof handles[name]?.getFile !== 'function')) {
+    throw new Error('incomplete_session_handles');
+  }
+  if (!counts || Object.keys({comments:0,alerts:0,streamStates:0,held:0})
+    .some((key) => !Number.isSafeInteger(counts[key]) || counts[key] < 0)) {
+    throw new Error('invalid_recovered_counts');
+  }
+  return makeContinuousSessionRecorder(handles, session, { ...counts });
+}
+
+function makeContinuousSessionRecorder(handles, session, counts) {
+  const sessionId = session.sessionId;
   let tail = Promise.resolve();
   let fatalError = null;
   let finishing = false;
