@@ -7,6 +7,7 @@ VL SmartLive is a local-first live production toolkit built around four editions
 1. **OBS Bridge**
    - Companion interface for OBS-connected workflows.
    - Provides live status, comments, Raw/Radar views, logs, and report previews.
+   - Optional public YouTube Live chat reader is available with a user-supplied, runtime-only YouTube Data API v3 key (mock-tested, not live-verified).
    - Keeps OBS operations read-only in this bundle; stream start/stop, scene switching, and recording controls are not included.
 
 2. **Web Console**
