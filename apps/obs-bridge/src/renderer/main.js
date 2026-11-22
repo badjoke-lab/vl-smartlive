@@ -9,6 +9,9 @@ import {
 import { OBS_FLOW_STATES, getRuntimeSupportLabel } from "./lib/obs-diagnostics.js";
 import { createObsReadonlyClient } from "./lib/obs-readonly-websocket.js";
 import { writeSessionSnapshot } from "./lib/session-file-writer.js";
+import { startContinuousSessionLogging } from "./lib/continuous-session-logger.js";
+let continuousRecorder = null;
+let continuousSaveError = false;
 import { createObsAlertItems, createObsUiSummary } from "./lib/obs-ui-summary.js";
 import { OBS_BRIDGE_SAFE_SETTINGS_DEFAULTS } from "../settings/settings-defaults";
 import { loadObsBridgeSafeSettings, resetObsBridgeSafeSettings, saveObsBridgeSafeSettings } from "../settings/settings-storage";
@@ -396,8 +399,14 @@ function setObsState(next) {
     updatedAt: new Date().toISOString(),
   };
   renderAll();
+  if (continuousRecorder && state.session?.status === 'active') {
+    queueContinuousRecord('stream-state.jsonl', {
+      ...buildStreamStateOutput()[0],
+      sourceType: state.obsClientMode === 'native-readonly' && state.obs.connection === 'connected'
+        ? 'obs_websocket_v5' : 'ui_state'
+    });
+  }
 }
-
 function updateObsModeUiCopy() {
   const noteElement = document.querySelector("#obsClientModeNote");
   if (!noteElement) return;
@@ -709,6 +718,12 @@ function renderSessionState() {
 }
 
 function startSessionMock() {
+  if (state.session.status === 'active' || continuousRecorder) {
+    setText('continuousLogStatus', 'End the current session before starting another.');
+    return;
+  }
+  continuousSaveError = false;
+  setText('continuousLogStatus', 'Not recording. Select a folder to enable incremental logging.');
   const startedAt = new Date().toISOString();
   const session = {
     sessionId: createSessionId(new Date(startedAt)),
@@ -764,7 +779,7 @@ function startSessionMock() {
   renderAll();
 }
 
-function endSessionMock() {
+async function endSessionMock() {
   if (!state.session.session) {
     state.session = { ...state.session, status: "error" };
     renderAll();
@@ -779,8 +794,20 @@ function endSessionMock() {
     session: { ...state.session.session, endedAt, durationSec },
   };
   renderAll();
+  if (continuousRecorder) {
+    try {
+      const result = await continuousRecorder.finish(endedAt);
+      setText('continuousLogStatus', 'Finalized six session files; comments=' +
+        result.counts.comments + ', OBS states=' + result.counts.streamStates +
+        ', alerts=' + result.counts.alerts + '.');
+      continuousRecorder = null;
+    } catch {
+      continuousSaveError = true;
+      setText('continuousLogStatus',
+        'Finalize failed. Partial files may exist; session is NOT confirmed saved.');
+    }
+  }
 }
-
 function prepareSessionJsonPlan() {
   if (!state.session.session) {
     state.session = {
@@ -1045,7 +1072,70 @@ function exportOutputFilesInBrowser() {
   }
 }
 
+// The folder handle is retained in page memory only, after an explicit user gesture.
+function queueContinuousRecord(filename, event) {
+  if (!continuousRecorder || continuousSaveError) return;
+  const recorder = continuousRecorder;
+  void recorder.record(filename, event).then((result) => {
+    if (recorder === continuousRecorder) {
+      setText('continuousLogStatus', 'Incremental logging: ' + result.counts.comments +
+        ' comments, ' + result.counts.streamStates + ' OBS states, ' +
+        result.counts.alerts + ' alerts committed.');
+    }
+  }).catch(() => {
+    if (recorder === continuousRecorder) {
+      continuousSaveError = true;
+      setText('continuousLogStatus', 'WRITE FAILED. Partial files may exist; incremental logging halted.');
+    }
+  });
+}
+async function beginContinuousLogging() {
+  if (!state.session.session || state.session.status !== 'active') {
+    setText('continuousLogStatus', 'Start a session first.');
+    return;
+  }
+  if (continuousRecorder) {
+    setText('continuousLogStatus', 'Already recording. End the session to finalize.');
+    return;
+  }
+  if (typeof globalThis.showDirectoryPicker !== 'function') {
+    setText('continuousLogStatus', 'Unsupported. Use Chrome/Edge with folder access.');
+    return;
+  }
+  try {
+    // Invoked by a direct click; user must authorize access.
+    const directory = await globalThis.showDirectoryPicker({
+      id: 'smartlive-incremental-logs', mode: 'readwrite'
+    });
+    continuousRecorder = await startContinuousSessionLogging(directory, {
+      sessionId: state.session.session.sessionId,
+      startedAt: state.session.session.startedAt,
+      mode: state.obsClientMode
+    });
+    continuousSaveError = false;
+    setText('continuousLogStatus', 'Incremental logging active: ' + continuousRecorder.path);
+    queueContinuousRecord('stream-state.jsonl', {
+      ...buildStreamStateOutput()[0],
+      sourceType: state.obsClientMode === 'native-readonly' && state.obs.connection === 'connected'
+        ? 'obs_websocket_v5' : 'ui_state'
+    });
+  } catch (error) {
+    setText('continuousLogStatus', error?.name === 'AbortError'
+      ? 'Folder selection cancelled. Nothing recorded.'
+      : 'Could not start incremental logging (permissions, existing session or disk failure).');
+  }
+}
+
 async function saveLocalLogsIfSupported() {
+  if (continuousRecorder) {
+    state.session.localPersistenceExecution = {
+      status: 'blocked_by_incremental_logging', runtimeSupport: 'supported',
+      filesWritten: 0, resultPreview: 'Incremental recorder owns this session.',
+      message: 'End the session before writing a manual six-file snapshot.'
+    };
+    renderAll();
+    return;
+  }
   const support = typeof globalThis.showDirectoryPicker === 'function' ? 'supported' : 'unsupported_runtime';
   if (support !== 'supported') {
     state.session.localPersistenceExecution = {
@@ -1248,6 +1338,7 @@ document.querySelector("#obsClientModeInput").addEventListener("change", (event)
 document.querySelector("#obsTestConnectionButton").addEventListener("click", () => { document.querySelector("#obsConnectButton").click(); setScreen("live"); });
 document.querySelector("#startSessionButton").addEventListener("click", startSessionMock);
 document.querySelector("#endSessionButton").addEventListener("click", endSessionMock);
+document.querySelector("#beginIncrementalLogButton")?.addEventListener("click", beginContinuousLogging);
 document.querySelector("#prepareSessionJsonPlanButton")?.addEventListener("click", prepareSessionJsonPlan);
 document.querySelector("#prepareCommentsJsonlPlanButton")?.addEventListener("click", prepareCommentsJsonlPlan);
 document.querySelector("#prepareAlertsJsonlPlanButton")?.addEventListener("click", prepareAlertsJsonlPlan);
@@ -1266,10 +1357,10 @@ document.querySelector("#logsListItems")?.addEventListener("click", (event) => {
 
 
 function sanitizeSecretText(value = "") { return String(value).replace(/(secret|token|key)=([^\s]+)/gi, "$1=[redacted]").replace(/wss?:\/\/[^\s]+/gi, "[url-redacted]"); }
-function buildSessionOutput(){const now=new Date().toISOString();const obs=state.obs||{};return {sessionId:state.session.session?.sessionId||createSessionId(),appEdition:"obs-bridge",createdAt:state.session.session?.startedAt||now,mode:state.obsDiagnostics.selectedMode==="real-readonly"?"real-readonly":"mock",obsConnectionState:state.obs.connection||"disconnected",currentScene:obs.currentSceneName||null,streamActive:obs.streamState==="live",recordingActive:false,commentsCount:state.comments.length,alertsCount:buildAlertsOutput().length,reportGeneratedAt:now};}
+function buildSessionOutput(){const now=new Date().toISOString();const obs=state.obs||{};return {sessionId:state.session.session?.sessionId||createSessionId(),appEdition:"obs-bridge",createdAt:state.session.session?.startedAt||now,mode:state.obsClientMode==="native-readonly"?"native-readonly":"mock",obsConnectionState:state.obs.connection||"disconnected",currentScene:obs.currentSceneName||null,streamActive:obs.streamState==="live",recordingActive:false,commentsCount:state.comments.length,alertsCount:buildAlertsOutput().length,reportGeneratedAt:now};}
 function buildCommentsOutput(){return state.comments.map((c)=>({timestamp:new Date().toISOString(),author:c.user||"unknown",displayName:c.user||"unknown",message:sanitizeSecretText(c.text||""),labels:c.labels||["general"],held:Boolean(c.held),source:"obs-bridge"}));}
 function buildAlertsOutput(){const out=[];for(const c of buildCommentsOutput()){const labs=new Set(c.labels||[]);if(c.held||labs.has("danger")||labs.has("url_detected")||labs.has("audio_issue")||labs.has("video_issue")){out.push({timestamp:c.timestamp,type:[...labs][0]||"held",severity:(c.held||labs.has("danger"))?"high":"medium",message:c.message,source:"obs-bridge"});}} if(state.obsDiagnostics.lastErrorCode&&state.obsDiagnostics.lastErrorCode!=="none"){out.push({timestamp:new Date().toISOString(),type:"connection_error",severity:"high",message:sanitizeSecretText(state.obsDiagnostics.lastErrorMessage||"connection error"),source:"obs-bridge"});} return out;}
-function buildStreamStateOutput(){return [{timestamp:new Date().toISOString(),mode:state.obsDiagnostics.selectedMode==="real-readonly"?"real-readonly":"mock",connectionState:state.obs.connection||"disconnected",currentScene:state.obs.currentSceneName||null,streamActive:state.obs.streamState==="live",recordingActive:false,droppedFrames:state.obs.metrics?.droppedFrames,cpuUsage:state.obs.metrics?.cpuUsagePercent,memoryUsage:state.obs.metrics?.memoryUsage,source:"obs-bridge"}];}
+function buildStreamStateOutput(){return [{timestamp:new Date().toISOString(),mode:state.obsClientMode==="native-readonly"?"native-readonly":"mock",connectionState:state.obs.connection||"disconnected",currentScene:state.obs.currentSceneName||null,streamActive:state.obs.streamState==="live",recordingActive:false,droppedFrames:state.obs.metrics?.droppedFrames,cpuUsage:state.obs.metrics?.cpuUsagePercent,memoryUsage:state.obs.metrics?.memoryUsage,source:"obs-bridge"}];}
 function buildRadarGroupsOutput(){const groups={question:[],audio_issue:[],video_issue:[],danger:[],highlight:[],general:[]};for(const c of buildCommentsOutput()){const labs=new Set(c.labels||[]);if(c.held||labs.has("danger")||labs.has("url_detected"))groups.danger.push(c); else if(labs.has("question"))groups.question.push(c); else if(labs.has("audio_issue"))groups.audio_issue.push(c); else if(labs.has("video_issue"))groups.video_issue.push(c); else if(labs.has("highlight"))groups.highlight.push(c); else groups.general.push(c);} return groups;}
 function generateOutputs(){const session=buildSessionOutput();const comments=buildCommentsOutput();const alerts=buildAlertsOutput();const stream=buildStreamStateOutput();const radarGroups=buildRadarGroupsOutput();const generatedAt=new Date().toISOString();const reportJson={session,obsState:stream[0],commentSummary:{total:comments.length},radarGroups,alerts,generatedAt,source:"obs-bridge"};const reportMd=`# OBS Bridge Report\n\n- generatedAt: ${generatedAt}\n- sessionId: ${session.sessionId}\n- comments: ${comments.length}\n- alerts: ${alerts.length}\n\n## known limitations\n- No OBS control operations.\n- OBS Bridge usable workflow is available in the workspace.\n\n## credential safety statement\nOBS credentials are runtime-only, never logged, and never exported.\n`;state.generatedOutputs={"session.json":JSON.stringify(session,null,2)+"\n","comments.jsonl":comments.map((x)=>JSON.stringify(x)).join("\n")+"\n","alerts.jsonl":alerts.map((x)=>JSON.stringify(x)).join("\n")+"\n","stream-state.jsonl":stream.map((x)=>JSON.stringify(x)).join("\n")+"\n","report.md":reportMd,"report.json":JSON.stringify(reportJson,null,2)+"\n"};setText("outputPreviewPanel",Object.keys(state.generatedOutputs).map((f)=>`${f} generated ${generatedAt}`).join("\n")); pushObsRuntimeLog("outputs generated");}
 function downloadOutputFile(name){if(!state.generatedOutputs||!state.generatedOutputs[name]) return;const blob=new Blob([state.generatedOutputs[name]],{type:"text/plain"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}
@@ -1280,8 +1371,20 @@ renderAll();
 // readonly normalized fields: mode connected currentScene streamActive recordingActive droppedFrames outputSkippedFrames cpuUsage memoryUsage lastError lastUpdatedAt
 
 
-document.querySelector("#addCommentButton")?.addEventListener("click",()=>{const author=document.querySelector("#commentAuthorInput")?.value?.trim()||"guest";const message=document.querySelector("#commentMessageInput")?.value?.trim();if(!message)return;const label=document.querySelector("#commentLabelInput")?.value||"general";state.comments.push({id:`manual_${Date.now()}`,user:author,text:sanitizeSecretText(message),labels:[label],held:label==="danger",queued:false,handled:false,pinned:false,priority:"normal"});renderAll();});
-document.querySelector("#importCommentJsonlButton")?.addEventListener("click",()=>{const text=document.querySelector("#commentJsonlTextarea")?.value||"";const mode=document.querySelector("#commentImportMode")?.value||"append";const errors=[];const parsed=[];text.split(/\n/).forEach((line,i)=>{if(!line.trim())return;try{const o=JSON.parse(line);parsed.push({id:`import_${Date.now()}_${i}`,user:o.author||o.displayName||"import",text:sanitizeSecretText(o.message||""),labels:o.labels||["general"],held:Boolean(o.held)});}catch{errors.push(`line ${i+1}`);}});if(mode==="replace") state.comments=[];state.comments=state.comments.concat(parsed);setText("commentImportErrors",errors.length?`Import errors: ${errors.join(", ")}`:"Import completed.");pushObsRuntimeLog(errors.length?`import errors ${errors.length}`:"import success");renderAll();});
+document.querySelector("#addCommentButton")?.addEventListener("click",()=>{const author=document.querySelector("#commentAuthorInput")?.value?.trim()||"guest";const message=document.querySelector("#commentMessageInput")?.value?.trim();if(!message)return;const label=document.querySelector("#commentLabelInput")?.value||"general";state.comments.push({id:`manual_${Date.now()}`,user:author,text:sanitizeSecretText(message),labels:[label],held:label==="danger",queued:false,handled:false,pinned:false,priority:"normal"});renderAll();
+  const item = state.comments[state.comments.length - 1];
+  queueContinuousRecord('comments.jsonl', {
+    timestamp: new Date().toISOString(), commentId: item.id, text: item.text,
+    user: { displayName: item.user }, labels: item.labels, held: item.held,
+    sourceType: 'manual', platform: 'local'
+  });});
+document.querySelector("#importCommentJsonlButton")?.addEventListener("click",()=>{const text=document.querySelector("#commentJsonlTextarea")?.value||"";const mode=document.querySelector("#commentImportMode")?.value||"append";const errors=[];const parsed=[];text.split(/\n/).forEach((line,i)=>{if(!line.trim())return;try{const o=JSON.parse(line);parsed.push({id:`import_${Date.now()}_${i}`,user:o.author||o.displayName||"import",text:sanitizeSecretText(o.message||""),labels:o.labels||["general"],held:Boolean(o.held)});}catch{errors.push(`line ${i+1}`);}});if(mode==="replace") state.comments=[];state.comments=state.comments.concat(parsed);
+  for (const item of parsed) queueContinuousRecord('comments.jsonl', {
+    timestamp: new Date().toISOString(), commentId: item.id, text: item.text,
+    user: { displayName: item.user }, labels: item.labels, held: Boolean(item.held),
+    sourceType: 'imported_jsonl', platform: 'local'
+  });
+  setText("commentImportErrors",errors.length?`Import errors: ${errors.join(", ")}`:"Import completed.");pushObsRuntimeLog(errors.length?`import errors ${errors.length}`:"import success");renderAll();});
 document.querySelector("#commentJsonlFileInput")?.addEventListener("change",async (e)=>{const f=e.target.files?.[0]; if(!f) return; document.querySelector("#commentJsonlTextarea").value=await f.text();});
 document.querySelector("#generateOutputsButton")?.addEventListener("click",generateOutputs);["session","comments","alerts","streamState","reportMd","reportJson"].forEach((k)=>document.querySelector(`#download${k.charAt(0).toUpperCase()+k.slice(1)}JsonButton`));
 document.querySelector("#downloadSessionJsonButton")?.addEventListener("click",()=>downloadOutputFile("session.json"));document.querySelector("#downloadCommentsJsonlButton")?.addEventListener("click",()=>downloadOutputFile("comments.jsonl"));document.querySelector("#downloadAlertsJsonlButton")?.addEventListener("click",()=>downloadOutputFile("alerts.jsonl"));document.querySelector("#downloadStreamStateJsonlButton")?.addEventListener("click",()=>downloadOutputFile("stream-state.jsonl"));document.querySelector("#downloadReportMdButton")?.addEventListener("click",()=>downloadOutputFile("report.md"));document.querySelector("#downloadReportJsonButton")?.addEventListener("click",()=>downloadOutputFile("report.json"));
