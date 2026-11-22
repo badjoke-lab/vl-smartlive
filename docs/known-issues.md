@@ -22,7 +22,9 @@ This document lists public user-facing limitations for the current direct-distri
 - OBS metrics are sampled at a 3-second interval when authenticated; bitrate is unavailable until a measured bitrate source is implemented.
 - Comments are currently sample/hand-imported data; real YouTube/Twitch live comment APIs are not yet connected.
 
-- OBS Bridge can write prepared six-file session snapshots to a user-selected folder via Chrome/Edge File System Access API. Unavailable browsers must use manual download. Writes are user-initiated snapshots, not continuous crash-safe append logging.
+- OBS Bridge can write prepared six-file session snapshots to a user-selected folder via Chrome/Edge File System Access API. Unavailable browsers must use manual download.
+- **Opt-in incremental logging:** After starting a session, a separate folder-selection button initializes six files. Subsequent OBS UI-state updates and manually entered/imported comments are appended in order as JSONL, with readback validation. Ending the session updates metadata and reports from successfully written event counts. Existing session files are never silently overwritten.
+- Incremental logging is **not fully crash-safe**: browser termination, suspended tab, permission loss and interrupted writes can leave an incomplete session; no automatic restart/recovery or actual live-comment API exists. Logging starts only after explicit folder authorization; earlier UI mock events are not backfilled. Browser/File System Access behavior on physical devices remains unverified.
 - Native browser and Electron filesystem behavior has not been manually verified (device verification waived); CI exercises directory write/readback logic with simulated file handles.
 
 ## Web Console
