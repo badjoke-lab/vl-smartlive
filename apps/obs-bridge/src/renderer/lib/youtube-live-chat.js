@@ -87,8 +87,10 @@ export async function fetchYoutubeLiveChatPage({
   if (pageToken) url.searchParams.set('pageToken', String(pageToken));
   const result = await requestJson(fetchFn, url.toString(), apiKey, signal);
   if (!Array.isArray(result.items)) throw new Error('invalid_youtube_api_response');
-  const interval = Math.max(MIN_INTERVAL_MS, Math.min(300000,
-    Number(result.pollingIntervalMillis) || MIN_INTERVAL_MS));
+  // Never cap DOWN YouTube's interval: that would violate the provider's rate limit.
+  const providerInterval = Number(result.pollingIntervalMillis);
+  const interval = Number.isFinite(providerInterval) && providerInterval > 0
+    ? Math.max(MIN_INTERVAL_MS, providerInterval) : MIN_INTERVAL_MS;
   return {
     items: result.items,
     nextPageToken: typeof result.nextPageToken === 'string' ? result.nextPageToken : null,
