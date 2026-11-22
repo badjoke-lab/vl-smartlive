@@ -10,9 +10,15 @@ import { OBS_FLOW_STATES, getRuntimeSupportLabel } from "./lib/obs-diagnostics.j
 import { createObsReadonlyClient } from "./lib/obs-readonly-websocket.js";
 import { writeSessionSnapshot } from "./lib/session-file-writer.js";
 import { startContinuousSessionLogging } from "./lib/continuous-session-logger.js";
+import {
+  listInterruptedSessions, resumeInterruptedSession, finalizeInterruptedSession
+} from "./lib/session-recovery.js";
 let continuousRecorder = null;
 let continuousSaveError = false;
 let finalizedContinuousSessionId = null;
+let recoveryDirectoryHandle = null;
+let recoveryCandidates = [];
+let recoveryActionBusy = false;
 import { createObsAlertItems, createObsUiSummary } from "./lib/obs-ui-summary.js";
 import { OBS_BRIDGE_SAFE_SETTINGS_DEFAULTS } from "../settings/settings-defaults";
 import { loadObsBridgeSafeSettings, resetObsBridgeSafeSettings, saveObsBridgeSafeSettings } from "../settings/settings-storage";
@@ -726,7 +732,7 @@ function renderSessionState() {
   setText("localSaveUxResultSummary", resultSummary);
 }
 
-function startSessionMock() {
+function startSessionMock(recoveredSession = null) {
   if (state.session.status === 'active' || continuousRecorder) {
     setText('continuousLogStatus', 'End the current session before starting another.');
     return;
@@ -734,17 +740,19 @@ function startSessionMock() {
   continuousSaveError = false;
   finalizedContinuousSessionId = null;
   setText('continuousLogStatus', 'Not recording. Select a folder to enable incremental logging.');
-  const startedAt = new Date().toISOString();
+  const startedAt = recoveredSession?.startedAt || new Date().toISOString();
   const session = {
-    sessionId: createSessionId(new Date(startedAt)),
+    sessionId: recoveredSession?.sessionId || createSessionId(new Date(startedAt)),
     appId: "smartlive.obs-bridge",
-    appVersion: "0.0.0",
+    appVersion: recoveredSession ? "0.1.0" : "0.0.0",
     mode: "local-preview",
     platform: "desktop",
     startedAt,
-    obsClientMode: state.obsClientMode,
+    obsClientMode: recoveredSession?.mode || state.obsClientMode,
     logSchemaVersion: "smartlive.log.v0.1",
-    notes: "mock session state only",
+    notes: recoveredSession
+      ? "Manually resumed a prior interrupted journal; OBS must be reconnected."
+      : "mock session state only",
   };
   const plan = createSessionDirectoryPlan(session);
   state.session = {
@@ -1096,6 +1104,103 @@ function exportOutputFilesInBrowser() {
   }
 }
 
+function getSelectedRecoverySessionId() {
+  const id = document.querySelector('#recoverySessionSelect')?.value;
+  return recoveryCandidates.some((item) => item.sessionId === id && item.status === 'recoverable')
+    ? id : null;
+}
+function renderRecoveryCandidates(candidates) {
+  recoveryCandidates = candidates;
+  const select = document.querySelector('#recoverySessionSelect');
+  if (select) {
+    select.replaceChildren();
+    for (const item of candidates) {
+      if (item.status !== 'recoverable') continue;
+      const option = document.createElement('option');
+      option.value = item.sessionId;
+      option.textContent = item.sessionId + ' | ' + item.mode + ' | ' +
+        item.counts.comments + ' comments / ' + item.counts.streamStates + ' states';
+      select.appendChild(option);
+    }
+  }
+  const recoverable = candidates.filter((x) => x.status === 'recoverable').length;
+  const invalid = candidates.filter((x) => x.status === 'invalid');
+  const closed = candidates.filter((x) => x.status === 'closed').length;
+  setText('recoveryInspectionSummary',
+    'Recoverable: ' + recoverable + ', finalized: ' + closed +
+    ', invalid/unreadable: ' + invalid.length + '.\n' +
+    invalid.map((x) => x.sessionId + ': ' + x.reason).join('\n') +
+    '\nOnly complete, valid on-disk journals may be resumed or finalized.');
+}
+async function inspectRecoveryFolder() {
+  if (recoveryActionBusy) return;
+  if (typeof globalThis.showDirectoryPicker !== 'function') {
+    setText('recoveryInspectionSummary', 'Folder inspection requires a supported Chromium browser.');
+    return;
+  }
+  recoveryActionBusy = true;
+  try {
+    // Explicit directory consent: no credentials or network access.
+    const directory = await globalThis.showDirectoryPicker({
+      id: 'smartlive-recover-logs', mode: 'readwrite'
+    });
+    const candidates = await listInterruptedSessions(directory);
+    recoveryDirectoryHandle = directory;
+    renderRecoveryCandidates(candidates);
+  } catch (error) {
+    setText('recoveryInspectionSummary', error?.name === 'AbortError'
+      ? 'Folder selection cancelled.' : 'Unable to inspect selected folder or its sessions.');
+  } finally {
+    recoveryActionBusy = false;
+  }
+}
+async function resumeSelectedRecovery() {
+  const sessionId = getSelectedRecoverySessionId();
+  if (!sessionId || !recoveryDirectoryHandle || recoveryActionBusy ||
+      state.session.status === 'active' || continuousRecorder) {
+    setText('recoveryInspectionSummary', 'Select a recoverable session and end the current session first.');
+    return;
+  }
+  recoveryActionBusy = true;
+  try {
+    const result = await resumeInterruptedSession(recoveryDirectoryHandle, sessionId);
+    startSessionMock(result.session);
+    continuousRecorder = result.recorder;
+    continuousSaveError = false;
+    setText('continuousLogStatus',
+      'RESUMED: ' + sessionId + '. Earlier recording gap is unknown. Reconnect OBS manually.');
+    setText('recoveryInspectionSummary',
+      'Resumed ' + sessionId + '. New events are appended after an explicit recovery marker.');
+  } catch {
+    setText('recoveryInspectionSummary',
+      'Resume failed: existing journal was altered, invalid, or write permission was denied.');
+  } finally {
+    recoveryActionBusy = false;
+  }
+}
+async function finalizeSelectedRecovery() {
+  const sessionId = getSelectedRecoverySessionId();
+  if (!sessionId || !recoveryDirectoryHandle || recoveryActionBusy ||
+      state.session.status === 'active' || continuousRecorder) {
+    setText('recoveryInspectionSummary', 'Select a recoverable session and end the current session first.');
+    return;
+  }
+  recoveryActionBusy = true;
+  try {
+    const result = await finalizeInterruptedSession(recoveryDirectoryHandle, sessionId);
+    const refreshed = await listInterruptedSessions(recoveryDirectoryHandle);
+    renderRecoveryCandidates(refreshed);
+    setText('recoveryInspectionSummary',
+      'Finalized ' + result.sessionId + ' as INTERRUPTED. Actual end time is unknown. ' +
+      result.counts.comments + ' comments and ' + result.counts.streamStates + ' states preserved.');
+  } catch {
+    setText('recoveryInspectionSummary',
+      'Finalization failed. Existing JSONL remains untouched; inspect and retry.');
+  } finally {
+    recoveryActionBusy = false;
+  }
+}
+
 // The folder handle is retained in page memory only, after an explicit user gesture.
 function queueContinuousRecord(filename, event) {
   if (!continuousRecorder || continuousSaveError) return;
@@ -1361,9 +1466,12 @@ document.querySelector("#obsDisconnectButton").addEventListener("click", handleO
 document.querySelector("#obsRefreshButton").addEventListener("click", handleObsRefresh);
 document.querySelector("#obsClientModeInput").addEventListener("change", (event) => applyObsMode(event.target.value));
 document.querySelector("#obsTestConnectionButton").addEventListener("click", () => { document.querySelector("#obsConnectButton").click(); setScreen("live"); });
-document.querySelector("#startSessionButton").addEventListener("click", startSessionMock);
+document.querySelector("#startSessionButton").addEventListener("click", () => startSessionMock());
 document.querySelector("#endSessionButton").addEventListener("click", endSessionMock);
 document.querySelector("#beginIncrementalLogButton")?.addEventListener("click", beginContinuousLogging);
+document.querySelector("#inspectInterruptedSessionsButton")?.addEventListener("click", inspectRecoveryFolder);
+document.querySelector("#resumeInterruptedSessionButton")?.addEventListener("click", resumeSelectedRecovery);
+document.querySelector("#finalizeInterruptedSessionButton")?.addEventListener("click", finalizeSelectedRecovery);
 document.querySelector("#prepareSessionJsonPlanButton")?.addEventListener("click", prepareSessionJsonPlan);
 document.querySelector("#prepareCommentsJsonlPlanButton")?.addEventListener("click", prepareCommentsJsonlPlan);
 document.querySelector("#prepareAlertsJsonlPlanButton")?.addEventListener("click", prepareAlertsJsonlPlan);
